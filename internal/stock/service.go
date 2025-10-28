@@ -125,15 +125,23 @@ func (s *Service) GetProfile(ctx context.Context, symbol string) (*StockProfile,
 		}
 	}
 
+	// Profile API only available for FMP, not Alpha Vantage
+	if s.config.APIProvider != "fmp" {
+		// Return basic profile from quote data instead
+		return s.getProfileFromQuote(ctx, symbol)
+	}
+
 	// Apply rate limiting
 	if s.rateLimiter != nil {
 		<-s.rateLimiter.C
 	}
 
-	// Fetch from API (FMP only for now)
+	// Fetch from API (FMP only)
 	profile, err := s.fetchProfileFMP(ctx, symbol)
 	if err != nil {
-		return nil, err
+		// Fallback to quote-based profile
+		s.logger.WithError(err).Warn("Failed to fetch FMP profile, falling back to quote-based profile")
+		return s.getProfileFromQuote(ctx, symbol)
 	}
 
 	// Cache the result (longer TTL for profiles as they change less frequently)
@@ -143,6 +151,23 @@ func (s *Service) GetProfile(ctx context.Context, symbol string) (*StockProfile,
 		cacheTTL := 24 * time.Hour // Profiles change rarely
 		s.redis.Set(ctx, cacheKey, data, cacheTTL)
 		s.logger.Debugf("Cached stock profile: %s (TTL: %v)", symbol, cacheTTL)
+	}
+
+	return profile, nil
+}
+
+// getProfileFromQuote creates a basic profile from quote data (fallback for Alpha Vantage)
+func (s *Service) getProfileFromQuote(ctx context.Context, symbol string) (*StockProfile, error) {
+	quote, err := s.GetQuote(ctx, symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	profile := &StockProfile{
+		Symbol:      quote.Symbol,
+		CompanyName: quote.Name,
+		Currency:    quote.Currency,
+		Exchange:    quote.Exchange,
 	}
 
 	return profile, nil
