@@ -18,6 +18,7 @@ type Config struct {
 	API      APIConfig
 	Logging  LoggingConfig
 	AI       AIConfig
+	Stock    StockConfig
 }
 
 // ServerConfig holds server-specific configuration
@@ -124,6 +125,16 @@ type AIConfig struct {
 	Timeout            time.Duration
 }
 
+// StockConfig holds stock API configuration
+type StockConfig struct {
+	APIKey          string
+	APIProvider     string // "fmp" or "alphavantage"
+	CacheTTL        time.Duration
+	RateLimitPerMin int
+	Timeout         time.Duration
+	EnableCache     bool
+}
+
 // Load reads configuration from environment variables and .env file
 func Load() (*Config, error) {
 	v := viper.New()
@@ -223,6 +234,14 @@ func Load() (*Config, error) {
 			RateLimitPerMinute: v.GetInt("AI_RATE_LIMIT_PER_MINUTE"),
 			Timeout:            time.Duration(v.GetInt("AI_TIMEOUT_SECONDS")) * time.Second,
 		},
+		Stock: StockConfig{
+			APIKey:          v.GetString("STOCK_API_KEY"),
+			APIProvider:     v.GetString("STOCK_API_PROVIDER"),
+			CacheTTL:        time.Duration(v.GetInt("STOCK_API_CACHE_TTL_MINUTES")) * time.Minute,
+			RateLimitPerMin: v.GetInt("STOCK_API_RATE_LIMIT_PER_MINUTE"),
+			Timeout:         time.Duration(v.GetInt("STOCK_API_TIMEOUT_SECONDS")) * time.Second,
+			EnableCache:     v.GetBool("STOCK_API_ENABLE_CACHE"),
+		},
 	}
 
 	return cfg, nil
@@ -310,6 +329,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("BROWSER_WAIT_AFTER_LOAD_MS", 2000)
 	v.SetDefault("BROWSER_FALLBACK_ONLY", true)
 	v.SetDefault("BROWSER_MAX_CONCURRENT", 2)
+
+	// Stock API defaults
+	v.SetDefault("STOCK_API_PROVIDER", "fmp")
+	v.SetDefault("STOCK_API_CACHE_TTL_MINUTES", 5)
+	v.SetDefault("STOCK_API_RATE_LIMIT_PER_MINUTE", 30)
+	v.SetDefault("STOCK_API_TIMEOUT_SECONDS", 10)
+	v.SetDefault("STOCK_API_ENABLE_CACHE", true)
 }
 
 // GetDSN returns PostgreSQL connection string

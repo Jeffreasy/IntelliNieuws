@@ -25,6 +25,7 @@ func SetupRoutes(
 	articleHandler *handlers.ArticleHandler,
 	scraperHandler *handlers.ScraperHandler,
 	aiHandler *handlers.AIHandler,
+	stockHandler *handlers.StockHandler,
 	rateLimiter *middleware.RateLimiter,
 	auth *middleware.APIKeyAuth,
 	log *logger.Logger,
@@ -121,6 +122,20 @@ func SetupRoutes(
 
 		// Conversational AI chat endpoint (public)
 		ai.Post("/chat", aiHandler.Chat)
+	}
+
+	// Stock ticker routes (public)
+	if stockHandler != nil {
+		stocks := api.Group("/stocks")
+		stocks.Get("/quote/:symbol", stockHandler.GetQuote)
+		stocks.Post("/quotes", stockHandler.GetMultipleQuotes)
+		stocks.Get("/profile/:symbol", stockHandler.GetProfile)
+		stocks.Get("/stats", stockHandler.GetStats)
+	}
+
+	// Stock ticker article routes (public)
+	if aiHandler != nil {
+		articles.Get("/by-ticker/:symbol", aiHandler.GetArticlesByTicker)
 	}
 
 	// Protected routes (requires auth)

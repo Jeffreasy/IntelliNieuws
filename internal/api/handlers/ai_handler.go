@@ -279,6 +279,69 @@ func (h *AIHandler) GetArticlesByEntity(c *fiber.Ctx) error {
 	return c.JSON(models.NewSuccessResponseWithMeta(articles, meta, requestID))
 }
 
+// GetArticlesByTicker returns articles mentioning a specific stock ticker
+// GET /api/v1/articles/by-ticker/:symbol
+func (h *AIHandler) GetArticlesByTicker(c *fiber.Ctx) error {
+	requestID := c.Locals("requestid").(string)
+	symbol := c.Params("symbol")
+
+	if symbol == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(
+			models.NewErrorResponse("MISSING_PARAMETER", "Stock symbol is required", "", requestID),
+		)
+	}
+
+	limit := c.QueryInt("limit", 50)
+	if limit > 100 {
+		limit = 100
+	}
+	if limit < 1 {
+		limit = 50
+	}
+
+	// Try cache first (OPTIMIZED)
+	cacheKey := cache.GenerateKey(cache.PrefixAIEntity, "ticker", symbol, fmt.Sprintf("l%d", limit))
+	var articles []models.Article
+
+	if h.cache != nil && h.cache.IsAvailable() {
+		if err := h.cache.Get(c.Context(), cacheKey, &articles); err == nil {
+			h.logger.Debugf("Cache HIT for stock ticker %s", symbol)
+
+			meta := &models.Meta{
+				Pagination: models.CalculatePaginationMeta(len(articles), limit, 0),
+				Filtering: &models.FilteringMeta{
+					Search: symbol,
+				},
+			}
+			return c.JSON(models.NewSuccessResponseWithMeta(articles, meta, requestID))
+		}
+	}
+
+	articles, err := h.aiService.GetArticlesByStockTicker(c.Context(), symbol, limit)
+	if err != nil {
+		h.logger.WithError(err).Errorf("Failed to get articles for stock ticker %s", symbol)
+		return c.Status(fiber.StatusInternalServerError).JSON(
+			models.NewErrorResponse("DATABASE_ERROR", "Failed to retrieve articles", err.Error(), requestID),
+		)
+	}
+
+	// Cache the result
+	if h.cache != nil && h.cache.IsAvailable() {
+		if err := h.cache.Set(c.Context(), cacheKey, articles); err != nil {
+			h.logger.WithError(err).Warn("Failed to cache ticker articles")
+		}
+	}
+
+	meta := &models.Meta{
+		Pagination: models.CalculatePaginationMeta(len(articles), limit, 0),
+		Filtering: &models.FilteringMeta{
+			Search: symbol,
+		},
+	}
+
+	return c.JSON(models.NewSuccessResponseWithMeta(articles, meta, requestID))
+}
+
 // TriggerProcessing manually triggers AI processing
 // POST /api/v1/ai/process/trigger
 func (h *AIHandler) TriggerProcessing(c *fiber.Ctx) error {

@@ -20,6 +20,7 @@ import (
 	"github.com/jeffrey/intellinieuws/internal/repository"
 	"github.com/jeffrey/intellinieuws/internal/scheduler"
 	"github.com/jeffrey/intellinieuws/internal/scraper"
+	"github.com/jeffrey/intellinieuws/internal/stock"
 	"github.com/jeffrey/intellinieuws/pkg/config"
 	"github.com/jeffrey/intellinieuws/pkg/logger"
 	"github.com/jeffrey/intellinieuws/pkg/middleware"
@@ -214,6 +215,29 @@ func main() {
 		log.Info("AI processing disabled")
 	}
 
+	// Initialize stock service (if configured)
+	var stockService *stock.Service
+	var stockHandler *handlers.StockHandler
+
+	if cfg.Stock.APIKey != "" {
+		log.Info("Initializing stock service")
+
+		stockConfig := &stock.Config{
+			APIKey:          cfg.Stock.APIKey,
+			APIProvider:     cfg.Stock.APIProvider,
+			CacheTTL:        cfg.Stock.CacheTTL,
+			RateLimitPerMin: cfg.Stock.RateLimitPerMin,
+			Timeout:         cfg.Stock.Timeout,
+			EnableCache:     cfg.Stock.EnableCache && redisClient != nil,
+		}
+
+		stockService = stock.NewService(stockConfig, redisClient, log)
+		stockHandler = handlers.NewStockHandler(stockService, log)
+		log.Info("Stock service initialized successfully")
+	} else {
+		log.Info("Stock service disabled (no API key configured)")
+	}
+
 	// Initialize handlers
 	articleHandler := handlers.NewArticleHandler(articleRepo, cacheService, log)
 	articleHandler.SetScraperService(scraperService) // Enable content extraction endpoint
@@ -256,7 +280,7 @@ func main() {
 	})
 
 	// Setup routes with comprehensive health monitoring (PHASE 4)
-	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
+	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, stockHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)
@@ -300,6 +324,12 @@ func main() {
 	// Cleanup scraper service (closes browser pool if active)
 	log.Info("Cleaning up scraper resources...")
 	scraperService.Cleanup()
+
+	// Cleanup stock service (closes rate limiter)
+	if stockService != nil {
+		log.Info("Cleaning up stock service...")
+		stockService.Close()
+	}
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
