@@ -368,11 +368,60 @@ func (s *Service) GetArticlesByEntity(ctx context.Context, entityName, entityTyp
 	return articles, nil
 }
 
+// GetArticlesByStockTicker retrieves articles mentioning a specific stock ticker
+func (s *Service) GetArticlesByStockTicker(ctx context.Context, ticker string, limit int) ([]models.Article, error) {
+	query := `
+		SELECT id, title, summary, url, published, source, keywords, image_url,
+		       author, category, content_hash, created_at, updated_at,
+		       content, content_extracted, content_extracted_at
+		FROM articles
+		WHERE ai_processed = TRUE
+		  AND ai_stock_tickers IS NOT NULL
+		  AND ai_stock_tickers::text ILIKE $1
+		ORDER BY published DESC
+		LIMIT $2
+	`
+
+	rows, err := s.db.Query(ctx, query, "%"+ticker+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get articles by stock ticker: %w", err)
+	}
+	defer rows.Close()
+
+	articles := []models.Article{}
+	for rows.Next() {
+		var article models.Article
+		if err := rows.Scan(
+			&article.ID,
+			&article.Title,
+			&article.Summary,
+			&article.URL,
+			&article.Published,
+			&article.Source,
+			&article.Keywords,
+			&article.ImageURL,
+			&article.Author,
+			&article.Category,
+			&article.ContentHash,
+			&article.CreatedAt,
+			&article.UpdatedAt,
+			&article.Content,
+			&article.ContentExtracted,
+			&article.ContentExtractedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan article: %w", err)
+		}
+		articles = append(articles, article)
+	}
+
+	return articles, nil
+}
+
 // GetEnrichment retrieves AI enrichment for an article
 func (s *Service) GetEnrichment(ctx context.Context, articleID int64) (*AIEnrichment, error) {
 	query := `
-		SELECT ai_processed, ai_sentiment, ai_sentiment_label, ai_categories, 
-		       ai_entities, ai_summary, ai_keywords, ai_processed_at, ai_error
+		SELECT ai_processed, ai_sentiment, ai_sentiment_label, ai_categories,
+		       ai_entities, ai_summary, ai_keywords, ai_stock_tickers, ai_processed_at, ai_error
 		FROM articles
 		WHERE id = $1
 	`
@@ -381,7 +430,7 @@ func (s *Service) GetEnrichment(ctx context.Context, articleID int64) (*AIEnrich
 	var processedAt *time.Time
 	var sentimentScore *float64
 	var sentimentLabel *string
-	var categoriesJSON, entitiesJSON, keywordsJSON []byte
+	var categoriesJSON, entitiesJSON, keywordsJSON, stockTickersJSON []byte
 	var summary, errorMsg *string
 
 	err := s.db.QueryRow(ctx, query, articleID).Scan(
@@ -392,6 +441,7 @@ func (s *Service) GetEnrichment(ctx context.Context, articleID int64) (*AIEnrich
 		&entitiesJSON,
 		&summary,
 		&keywordsJSON,
+		&stockTickersJSON,
 		&processedAt,
 		&errorMsg,
 	)
@@ -424,6 +474,18 @@ func (s *Service) GetEnrichment(ctx context.Context, articleID int64) (*AIEnrich
 	if keywordsJSON != nil {
 		if err := json.Unmarshal(keywordsJSON, &enrichment.Keywords); err != nil {
 			s.logger.WithError(err).Warn("Failed to unmarshal keywords")
+		}
+	}
+
+	// Unmarshal stock tickers and add to entities
+	if stockTickersJSON != nil {
+		var stockTickers []StockTicker
+		if err := json.Unmarshal(stockTickersJSON, &stockTickers); err != nil {
+			s.logger.WithError(err).Warn("Failed to unmarshal stock tickers")
+		} else if enrichment.Entities == nil {
+			enrichment.Entities = &EntityExtraction{StockTickers: stockTickers}
+		} else {
+			enrichment.Entities.StockTickers = stockTickers
 		}
 	}
 
@@ -495,6 +557,12 @@ func (s *Service) saveEnrichment(ctx context.Context, articleID int64, enrichmen
 	entitiesJSON, _ := json.Marshal(enrichment.Entities)
 	keywordsJSON, _ := json.Marshal(enrichment.Keywords)
 
+	// Extract stock tickers from entities and marshal separately
+	var stockTickersJSON []byte
+	if enrichment.Entities != nil && len(enrichment.Entities.StockTickers) > 0 {
+		stockTickersJSON, _ = json.Marshal(enrichment.Entities.StockTickers)
+	}
+
 	var sentimentScore *float64
 	var sentimentLabel *string
 	if enrichment.Sentiment != nil {
@@ -516,6 +584,7 @@ func (s *Service) saveEnrichment(ctx context.Context, articleID int64, enrichmen
 		    ai_entities = $5,
 		    ai_summary = $6,
 		    ai_keywords = $7,
+		    ai_stock_tickers = $8,
 		    ai_processed_at = NOW(),
 		    ai_error = NULL
 		WHERE id = $1
@@ -529,6 +598,7 @@ func (s *Service) saveEnrichment(ctx context.Context, articleID int64, enrichmen
 		entitiesJSON,
 		summary,
 		keywordsJSON,
+		stockTickersJSON,
 	)
 
 	return err

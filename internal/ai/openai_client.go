@@ -311,15 +311,18 @@ func (c *OpenAIClient) ExtractEntities(ctx context.Context, title, content strin
 		{
 			Role: "system",
 			Content: `You are an expert in Named Entity Recognition for Dutch news articles.
-Extract persons, organizations, and locations mentioned in the article.
+Extract persons, organizations, locations, and stock tickers mentioned in the article.
 Respond ONLY with a JSON object in this exact format:
-{"persons": ["Name1", "Name2"], "organizations": ["Org1", "Org2"], "locations": ["Loc1", "Loc2"]}
+{"persons": ["Name1", "Name2"], "organizations": ["Org1", "Org2"], "locations": ["Loc1", "Loc2"], "stock_tickers": [{"symbol": "ASML", "name": "ASML Holding", "exchange": "AEX"}]}
 
 Rules:
 - Only include entities explicitly mentioned
 - Use proper capitalization
 - Don't include generic terms
-- Return empty arrays if no entities found`,
+- Return empty arrays if no entities found
+- For stock tickers, extract: symbol (e.g., ASML, AAPL), company name, and exchange if mentioned
+- Common Dutch stocks: ASML, Shell, ING, Philips, Unilever, ASMI, IMCD, etc.
+- Common US stocks: AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, etc.`,
 		},
 		{
 			Role:    "user",
@@ -545,7 +548,7 @@ func (c *OpenAIClient) ProcessArticle(ctx context.Context, title, content string
 		tasksDesc += "1. Sentiment analysis (score -1.0 to 1.0, label, confidence)\n"
 	}
 	if opts.EnableEntities {
-		tasksDesc += "2. Named entities (persons, organizations, locations)\n"
+		tasksDesc += "2. Named entities (persons, organizations, locations, stock tickers)\n"
 	}
 	if opts.EnableCategories {
 		tasksDesc += "3. Categories with confidence scores\n"
@@ -564,8 +567,12 @@ func (c *OpenAIClient) ProcessArticle(ctx context.Context, title, content string
 Respond with a valid JSON object containing all requested analyses.
 Be accurate, objective, and follow the specified formats exactly.
 
-IMPORTANT: Categories must be an object mapping category names to confidence scores (0.0-1.0), NOT an array.
-Example: {"categories": {"Politics": 0.9, "Economy": 0.3}}`,
+IMPORTANT:
+- Categories must be an object mapping category names to confidence scores (0.0-1.0), NOT an array.
+		Example: {"categories": {"Politics": 0.9, "Economy": 0.3}}
+- Stock tickers must be extracted from entities, including symbol, name, and exchange.
+		Example: {"entities": {"stock_tickers": [{"symbol": "ASML", "name": "ASML Holding", "exchange": "AEX"}]}}
+- Common stocks: Dutch (ASML, Shell, ING, Philips), US (AAPL, MSFT, GOOGL, TSLA, NVDA)`,
 		},
 		{
 			Role:    "user",
@@ -713,7 +720,7 @@ func (c *OpenAIClient) ProcessArticlesBatch(ctx context.Context, articles []Arti
 		promptBuilder.WriteString("- Sentiment (score -1.0 to 1.0, label, confidence)\n")
 	}
 	if opts.EnableEntities {
-		promptBuilder.WriteString("- Entities (persons, organizations, locations)\n")
+		promptBuilder.WriteString("- Entities (persons, organizations, locations, stock tickers)\n")
 	}
 	if opts.EnableCategories {
 		promptBuilder.WriteString("- Categories with confidence (as object, not array)\n")
@@ -751,7 +758,8 @@ CRITICAL RULES:
 2. One enrichment per article, in the SAME ORDER
 3. Categories must be objects: {"Politics": 0.9, "Economy": 0.3}
 4. Keywords must be arrays: [{"word": "keyword", "score": 0.9}]
-5. If you cannot analyze an article, return {"sentiment": null, "entities": null}`
+5. Stock tickers in entities: {"stock_tickers": [{"symbol": "ASML", "name": "ASML Holding", "exchange": "AEX"}]}
+6. If you cannot analyze an article, return {"sentiment": null, "entities": null}`
 
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},

@@ -50,8 +50,9 @@ go build -o api.exe ./cmd/api
 
 ### AI-Verrijking
 - 🤖 **Sentiment Analyse** - Positief/negatief/neutraal detectie
-- 👤 **Entity Extraction** - Personen, organisaties, locaties
-- 📂 **Auto-Categorisatie** - Intelligente categorie toewijzing
+- 👤 **Entity Extraction** - Personen, organisaties, locaties, **aandelen-tickers**
+- 📈 **Stock Ticker Detection** - Automatische detectie van ASML, Shell, AAPL, etc.
+-  **Auto-Categorisatie** - Intelligente categorie toewijzing
 - 🔑 **Keyword Extraction** - Relevante keywords met scores
 - 🔥 **Trending Topics** - Real-time trending onderwerpen
 
@@ -81,14 +82,18 @@ GET  /health                          # System health
 GET  /api/v1/articles                 # List articles
 GET  /api/v1/articles/:id             # Get single article
 GET  /api/v1/articles/search          # Search articles
+GET  /api/v1/articles/by-ticker/:symbol  # Articles by stock ticker
 GET  /api/v1/ai/trending              # Trending topics
 GET  /api/v1/ai/sentiment/stats       # Sentiment statistics
+GET  /api/v1/stocks/quote/:symbol     # Stock quote data
+GET  /api/v1/stocks/profile/:symbol   # Company profile
 ```
 
 ### Protected Endpoints (API Key Required)
 ```bash
 POST /api/v1/scrape                   # Trigger scraping
 POST /api/v1/ai/process/trigger       # Trigger AI processing
+POST /api/v1/stocks/quotes            # Batch stock quotes
 GET  /api/v1/scraper/stats            # Scraper statistics
 ```
 
@@ -171,6 +176,7 @@ Alle documentatie is beschikbaar in de [`/docs`](docs/) folder:
 - 🌐 **[API Reference](docs/api/README.md)** - Complete API documentatie
 - 💻 **[Frontend Guide](docs/frontend/README.md)** - Frontend integratie
 - ⚙️ **[Features](docs/features/ai-processing.md)** - AI en scraping features
+- 📈 **[Stock Tickers](docs/features/stock-tickers.md)** - Aandelen extraction & API integratie
 - 🚀 **[Deployment](docs/deployment/deployment-guide.md)** - Production deployment
 - 🛠️ **[Operations](docs/operations/quick-reference.md)** - Daily operations
 

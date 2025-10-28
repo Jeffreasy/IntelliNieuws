@@ -25,9 +25,19 @@ type SentimentAnalysis struct {
 
 // EntityExtraction contains extracted named entities
 type EntityExtraction struct {
-	Persons       []string `json:"persons,omitempty"`
-	Organizations []string `json:"organizations,omitempty"`
-	Locations     []string `json:"locations,omitempty"`
+	Persons       []string      `json:"persons,omitempty"`
+	Organizations []string      `json:"organizations,omitempty"`
+	Locations     []string      `json:"locations,omitempty"`
+	StockTickers  []StockTicker `json:"stock_tickers,omitempty"`
+}
+
+// StockTicker represents a stock ticker with metadata
+type StockTicker struct {
+	Symbol   string `json:"symbol"`             // e.g., "ASML", "AAPL"
+	Name     string `json:"name,omitempty"`     // Company name
+	Exchange string `json:"exchange,omitempty"` // e.g., "AEX", "NASDAQ"
+	Mentions int    `json:"mentions,omitempty"` // Number of mentions in article
+	Context  string `json:"context,omitempty"`  // Context of mention
 }
 
 // Keyword represents a keyword with relevance score

@@ -22,11 +22,13 @@ Integreer met je frontend applicatie
 - [Frontend Guide](frontend/README.md) - Complete integratie gids
 - [Quick Start](frontend/quickstart.md) - Basis implementatie
 - [AI Features](frontend/ai-features.md) - AI endpoints gebruiken
+- [Stock Tickers Integration](frontend/stock-tickers-integration.md) - 📈 Aandelen integratie
 - [Advanced Patterns](frontend/advanced-patterns.md) - Production-ready patterns
 
 ### ⚙️ Features & Capabilities
 Diepgaande feature documentatie
 - [AI Processing](features/ai-processing.md) - Sentiment, entities, keywords
+- [Stock Tickers](features/stock-tickers.md) - 📈 Aandelen extraction & API integratie
 - [Scraping Strategies](features/scraping.md) - RSS, HTML, Browser scraping
 - [Content Extraction](features/content-extraction.md) - Volledige artikel tekst
 - [Caching System](features/caching.md) - Multi-layer caching
