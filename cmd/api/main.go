@@ -17,6 +17,7 @@ import (
 	"github.com/jeffrey/intellinieuws/internal/api"
 	"github.com/jeffrey/intellinieuws/internal/api/handlers"
 	"github.com/jeffrey/intellinieuws/internal/cache"
+	"github.com/jeffrey/intellinieuws/internal/email"
 	"github.com/jeffrey/intellinieuws/internal/repository"
 	"github.com/jeffrey/intellinieuws/internal/scheduler"
 	"github.com/jeffrey/intellinieuws/internal/scraper"
@@ -246,6 +247,65 @@ func main() {
 		log.Info("Stock service disabled (no API key configured)")
 	}
 
+	// Initialize email service and processor (if configured)
+	var emailProcessor *email.Processor
+
+	if cfg.Email.Enabled {
+		log.Info("Initializing email service")
+
+		// Create email repository
+		emailRepo := repository.NewEmailRepository(dbPool)
+
+		// Configure email service
+		emailServiceConfig := &email.Config{
+			Host:            cfg.Email.Host,
+			Port:            cfg.Email.Port,
+			Username:        cfg.Email.Username,
+			Password:        cfg.Email.Password,
+			UseTLS:          cfg.Email.UseTLS,
+			AllowedSenders:  cfg.Email.AllowedSenders,
+			PollInterval:    cfg.Email.PollInterval,
+			MaxRetries:      cfg.Email.MaxRetries,
+			RetryDelay:      cfg.Email.RetryDelay,
+			MarkAsRead:      cfg.Email.MarkAsRead,
+			DeleteAfterRead: cfg.Email.DeleteAfterRead,
+		}
+
+		emailService := email.NewService(emailServiceConfig, log)
+
+		// Test connection
+		testCtx, testCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer testCancel()
+		if err := emailService.TestConnection(testCtx); err != nil {
+			log.WithError(err).Warn("Email connection test failed, continuing anyway...")
+		} else {
+			log.Info("Email connection test successful")
+		}
+
+		// Configure email processor
+		processorConfig := &email.ProcessorConfig{
+			PollInterval:    cfg.Email.PollInterval,
+			MaxRetries:      cfg.Email.MaxRetries,
+			ProcessArticles: true, // Automatically convert emails to articles
+			UseAI:           cfg.AI.Enabled && aiService != nil,
+		}
+
+		emailProcessor = email.NewProcessor(
+			emailService,
+			emailRepo,
+			articleRepo,
+			aiService,
+			processorConfig,
+			log,
+		)
+
+		// Start email processor in background
+		go emailProcessor.Start(context.Background())
+		log.Infof("Email processor started with interval: %v", cfg.Email.PollInterval)
+	} else {
+		log.Info("Email integration disabled")
+	}
+
 	// Initialize handlers
 	articleHandler := handlers.NewArticleHandler(articleRepo, cacheService, log)
 	articleHandler.SetScraperService(scraperService) // Enable content extraction endpoint
@@ -327,6 +387,12 @@ func main() {
 	if aiProcessor != nil && aiProcessor.IsRunning() {
 		log.Info("Stopping AI processor...")
 		aiProcessor.Stop()
+	}
+
+	// Stop email processor if running
+	if emailProcessor != nil && emailProcessor.IsRunning() {
+		log.Info("Stopping email processor...")
+		emailProcessor.Stop()
 	}
 
 	// Cleanup scraper service (closes browser pool if active)

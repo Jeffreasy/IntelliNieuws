@@ -19,6 +19,7 @@ type Config struct {
 	Logging  LoggingConfig
 	AI       AIConfig
 	Stock    StockConfig
+	Email    EmailConfig
 }
 
 // ServerConfig holds server-specific configuration
@@ -135,6 +136,22 @@ type StockConfig struct {
 	EnableCache     bool
 }
 
+// EmailConfig holds email integration configuration
+type EmailConfig struct {
+	Enabled         bool
+	Host            string
+	Port            int
+	Username        string
+	Password        string
+	UseTLS          bool
+	AllowedSenders  []string
+	PollInterval    time.Duration
+	MaxRetries      int
+	RetryDelay      time.Duration
+	MarkAsRead      bool
+	DeleteAfterRead bool
+}
+
 // Load reads configuration from environment variables and .env file
 func Load() (*Config, error) {
 	v := viper.New()
@@ -242,6 +259,20 @@ func Load() (*Config, error) {
 			Timeout:         time.Duration(v.GetInt("STOCK_API_TIMEOUT_SECONDS")) * time.Second,
 			EnableCache:     v.GetBool("STOCK_API_ENABLE_CACHE"),
 		},
+		Email: EmailConfig{
+			Enabled:         v.GetBool("EMAIL_ENABLED"),
+			Host:            v.GetString("EMAIL_HOST"),
+			Port:            v.GetInt("EMAIL_PORT"),
+			Username:        v.GetString("EMAIL_USERNAME"),
+			Password:        v.GetString("EMAIL_PASSWORD"),
+			UseTLS:          v.GetBool("EMAIL_USE_TLS"),
+			AllowedSenders:  strings.Split(v.GetString("EMAIL_ALLOWED_SENDERS"), ","),
+			PollInterval:    time.Duration(v.GetInt("EMAIL_POLL_INTERVAL_MINUTES")) * time.Minute,
+			MaxRetries:      v.GetInt("EMAIL_MAX_RETRIES"),
+			RetryDelay:      time.Duration(v.GetInt("EMAIL_RETRY_DELAY_SECONDS")) * time.Second,
+			MarkAsRead:      v.GetBool("EMAIL_MARK_AS_READ"),
+			DeleteAfterRead: v.GetBool("EMAIL_DELETE_AFTER_READ"),
+		},
 	}
 
 	return cfg, nil
@@ -336,6 +367,18 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("STOCK_API_RATE_LIMIT_PER_MINUTE", 30)
 	v.SetDefault("STOCK_API_TIMEOUT_SECONDS", 10)
 	v.SetDefault("STOCK_API_ENABLE_CACHE", true)
+
+	// Email defaults
+	v.SetDefault("EMAIL_ENABLED", false)
+	v.SetDefault("EMAIL_HOST", "outlook.office365.com")
+	v.SetDefault("EMAIL_PORT", 993)
+	v.SetDefault("EMAIL_USE_TLS", true)
+	v.SetDefault("EMAIL_ALLOWED_SENDERS", "noreply@x.ai")
+	v.SetDefault("EMAIL_POLL_INTERVAL_MINUTES", 5)
+	v.SetDefault("EMAIL_MAX_RETRIES", 3)
+	v.SetDefault("EMAIL_RETRY_DELAY_SECONDS", 5)
+	v.SetDefault("EMAIL_MARK_AS_READ", true)
+	v.SetDefault("EMAIL_DELETE_AFTER_READ", false)
 }
 
 // GetDSN returns PostgreSQL connection string

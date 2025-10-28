@@ -6,6 +6,8 @@ toolchain go1.24.9
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
+	github.com/emersion/go-imap/v2 v2.0.0-beta.7
+	github.com/emersion/go-message v0.18.2
 	github.com/go-rod/rod v0.116.2
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/jackc/pgx/v5 v5.7.6
@@ -23,6 +25,7 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/emersion/go-sasl v0.0.0-20231106173351-e73c9f7bad43 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
