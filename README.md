@@ -138,6 +138,31 @@ GET  /api/v1/scraper/stats            # Scraper statistics
 - **AI:** OpenAI API (GPT-4o-mini)
 - **Scraping:** RSS (gofeed), HTML (goquery), Browser (Rod)
 
+## 💻 Frontend Applicatie
+
+### IntelliNieuws Frontend
+Een moderne, AI-verrijkte frontend applicatie gebouwd met **Next.js 14** en **TypeScript**.
+
+**Features:**
+- 🤖 **AI-Powered Interface** - Real-time sentiment analysis en trending topics
+- 📊 **Interactive Dashboards** - Admin, stats, en AI insights
+- 🎨 **Professional Design System** - Volledig gedocumenteerd met tokens
+- ⚡ **Optimale Performance** - Server Components en smart caching
+- 📱 **100% Responsive** - Mobile-first design
+
+**Quick Start Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) - Ready! 🎉
+
+📖 **Frontend Docs:** [Frontend README](docs/frontend/README.md)
+
+---
+
 ## 📚 Documentatie
 
 Alle documentatie is beschikbaar in de [`/docs`](docs/) folder:
