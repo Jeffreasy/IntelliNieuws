@@ -110,3 +110,192 @@ type AlphaVantageQuoteResponse struct {
 		ChangePercent    string `json:"10. change percent"`
 	} `json:"Global Quote"`
 }
+
+// StockNews represents a news article from FMP
+type StockNews struct {
+	Symbol        string    `json:"symbol"`
+	PublishedDate time.Time `json:"publishedDate"`
+	Title         string    `json:"title"`
+	Image         string    `json:"image"`
+	Site          string    `json:"site"`
+	Text          string    `json:"text"`
+	URL           string    `json:"url"`
+}
+
+// FMPNewsResponse represents the response from FMP news API
+type FMPNewsResponse struct {
+	Symbol        string `json:"symbol"`
+	PublishedDate string `json:"publishedDate"`
+	Title         string `json:"title"`
+	Image         string `json:"image"`
+	Site          string `json:"site"`
+	Text          string `json:"text"`
+	URL           string `json:"url"`
+}
+
+// HistoricalPrice represents historical price data
+type HistoricalPrice struct {
+	Date          time.Time `json:"date"`
+	Open          float64   `json:"open"`
+	High          float64   `json:"high"`
+	Low           float64   `json:"low"`
+	Close         float64   `json:"close"`
+	AdjClose      float64   `json:"adjClose"`
+	Volume        int64     `json:"volume"`
+	Change        float64   `json:"change"`
+	ChangePercent float64   `json:"changePercent"`
+}
+
+// FMPHistoricalResponse represents FMP historical price response
+type FMPHistoricalResponse struct {
+	Symbol     string                   `json:"symbol"`
+	Historical []FMPHistoricalDataPoint `json:"historical"`
+}
+
+type FMPHistoricalDataPoint struct {
+	Date          string  `json:"date"`
+	Open          float64 `json:"open"`
+	High          float64 `json:"high"`
+	Low           float64 `json:"low"`
+	Close         float64 `json:"close"`
+	AdjClose      float64 `json:"adjClose"`
+	Volume        int64   `json:"volume"`
+	Change        float64 `json:"change"`
+	ChangePercent float64 `json:"changePercent"`
+}
+
+// KeyMetrics represents key financial metrics
+type KeyMetrics struct {
+	Symbol            string  `json:"symbol"`
+	MarketCap         int64   `json:"marketCap"`
+	PE                float64 `json:"peRatio"`
+	PEG               float64 `json:"pegRatio"`
+	PB                float64 `json:"priceToBook"`
+	PS                float64 `json:"priceToSales"`
+	ROE               float64 `json:"roe"`
+	ROA               float64 `json:"roa"`
+	DebtToEquity      float64 `json:"debtToEquity"`
+	CurrentRatio      float64 `json:"currentRatio"`
+	DividendYield     float64 `json:"dividendYield"`
+	EPS               float64 `json:"eps"`
+	RevenuePerShare   float64 `json:"revenuePerShare"`
+	FreeCashFlowYield float64 `json:"freeCashFlowYield"`
+}
+
+// FMPKeyMetricsResponse represents FMP key metrics response
+type FMPKeyMetricsResponse struct {
+	Symbol            string  `json:"symbol"`
+	Date              string  `json:"date"`
+	Period            string  `json:"period"`
+	MarketCap         int64   `json:"marketCap"`
+	PeRatio           float64 `json:"peRatio"`
+	PegRatio          float64 `json:"pegRatio"`
+	PriceToBookRatio  float64 `json:"priceToBookRatio"`
+	PriceToSalesRatio float64 `json:"priceToSalesRatio"`
+	Roe               float64 `json:"roe"`
+	Roa               float64 `json:"roa"`
+	DebtToEquity      float64 `json:"debtToEquity"`
+	CurrentRatio      float64 `json:"currentRatio"`
+	DividendYield     float64 `json:"dividendYield"`
+	Eps               float64 `json:"eps"`
+	RevenuePerShare   float64 `json:"revenuePerShare"`
+	FreeCashFlowYield float64 `json:"freeCashFlowYield"`
+}
+
+// EarningsCalendar represents an earnings announcement
+type EarningsCalendar struct {
+	Symbol       string    `json:"symbol"`
+	Date         time.Time `json:"date"`
+	EPS          float64   `json:"eps"`
+	EPSEstimated float64   `json:"epsEstimated"`
+	Time         string    `json:"time"`
+	Revenue      int64     `json:"revenue"`
+	RevenueEst   int64     `json:"revenueEstimated"`
+}
+
+// FMPEarningsCalendarResponse represents FMP earnings calendar response
+type FMPEarningsCalendarResponse struct {
+	Symbol           string  `json:"symbol"`
+	Date             string  `json:"date"`
+	Eps              float64 `json:"eps"`
+	EpsEstimated     float64 `json:"epsEstimated"`
+	Time             string  `json:"time"`
+	Revenue          int64   `json:"revenue"`
+	RevenueEstimated int64   `json:"revenueEstimated"`
+}
+
+// MarketMover represents top gaining/losing stocks
+type MarketMover struct {
+	Symbol        string  `json:"symbol"`
+	Name          string  `json:"name"`
+	Change        float64 `json:"change"`
+	ChangePercent float64 `json:"changePercent"`
+	Price         float64 `json:"price"`
+	Volume        int64   `json:"volume"`
+}
+
+// FMPMarketMoverResponse represents FMP gainers/losers response
+type FMPMarketMoverResponse struct {
+	Symbol            string  `json:"symbol"`
+	Name              string  `json:"name"`
+	Change            float64 `json:"change"`
+	ChangesPercentage float64 `json:"changesPercentage"`
+	Price             float64 `json:"price"`
+	Volume            int64   `json:"volume"`
+}
+
+// SectorPerformance represents sector performance data
+type SectorPerformance struct {
+	Sector        string  `json:"sector"`
+	ChangePercent float64 `json:"changePercent"`
+}
+
+// FMPSectorPerformanceResponse represents FMP sector performance response
+type FMPSectorPerformanceResponse struct {
+	Sector            string `json:"sector"`
+	ChangesPercentage string `json:"changesPercentage"`
+}
+
+// AnalystRating represents analyst ratings
+type AnalystRating struct {
+	Symbol          string    `json:"symbol"`
+	Date            time.Time `json:"date"`
+	AnalystName     string    `json:"analystName"`
+	AnalystCompany  string    `json:"analystCompany"`
+	GradeNew        string    `json:"gradeNew"`
+	GradePrevious   string    `json:"gradePrevious"`
+	Action          string    `json:"action"`
+	PriceTarget     float64   `json:"priceTarget"`
+	PriceWhenPosted float64   `json:"priceWhenPosted"`
+}
+
+// FMPAnalystRatingResponse represents FMP analyst rating response
+type FMPAnalystRatingResponse struct {
+	Symbol          string  `json:"symbol"`
+	Date            string  `json:"date"`
+	AnalystName     string  `json:"analystName"`
+	AnalystCompany  string  `json:"analystCompany"`
+	GradeNew        string  `json:"newGrade"`
+	GradePrevious   string  `json:"previousGrade"`
+	Action          string  `json:"gradeAction"`
+	PriceTarget     float64 `json:"priceTarget"`
+	PriceWhenPosted float64 `json:"priceWhenPosted"`
+}
+
+// PriceTarget represents price target consensus
+type PriceTarget struct {
+	Symbol        string  `json:"symbol"`
+	TargetHigh    float64 `json:"targetHigh"`
+	TargetLow     float64 `json:"targetLow"`
+	TargetConsens float64 `json:"targetConsensus"`
+	TargetMedian  float64 `json:"targetMedian"`
+}
+
+// FMPPriceTargetResponse represents FMP price target response
+type FMPPriceTargetResponse struct {
+	Symbol          string  `json:"symbol"`
+	TargetHigh      float64 `json:"targetHigh"`
+	TargetLow       float64 `json:"targetLow"`
+	TargetConsensus float64 `json:"targetConsensus"`
+	TargetMedian    float64 `json:"targetMedian"`
+}

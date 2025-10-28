@@ -11,12 +11,30 @@ import (
 	"github.com/jeffrey/intellinieuws/pkg/logger"
 )
 
+// StockService interface for optional stock data enrichment
+type StockService interface {
+	GetMultipleQuotes(ctx context.Context, symbols []string) (map[string]*StockQuote, error)
+}
+
+// StockQuote represents a stock quote (mirrors internal/stock/models.go)
+type StockQuote struct {
+	Symbol        string  `json:"symbol"`
+	Name          string  `json:"name"`
+	Price         float64 `json:"price"`
+	Change        float64 `json:"change"`
+	ChangePercent float64 `json:"change_percent"`
+	Volume        int64   `json:"volume"`
+	MarketCap     int64   `json:"market_cap,omitempty"`
+	Exchange      string  `json:"exchange"`
+}
+
 // Service handles AI processing of articles
 type Service struct {
 	db           *pgxpool.Pool
 	openAIClient *OpenAIClient
 	config       *Config
 	logger       *logger.Logger
+	stockService StockService // Optional stock service for enrichment
 }
 
 // NewService creates a new AI service
@@ -769,6 +787,136 @@ func (s *Service) getArticlesForBatch(ctx context.Context, articleIDs []int64) (
 	}
 
 	return articles, nil
+}
+
+// SetStockService sets the stock service for automatic stock data enrichment
+func (s *Service) SetStockService(stockService StockService) {
+	s.stockService = stockService
+	s.logger.Info("Stock service connected for automatic enrichment")
+}
+
+// EnrichArticlesWithStockData enriches articles with real-time stock data using BATCH API
+// This is called after AI processing to add current stock prices to articles with extracted tickers
+func (s *Service) EnrichArticlesWithStockData(ctx context.Context, articleIDs []int64) error {
+	if s.stockService == nil {
+		s.logger.Debug("Stock service not configured, skipping stock enrichment")
+		return nil
+	}
+
+	// Get articles with stock tickers
+	query := `
+		SELECT id, ai_stock_tickers
+		FROM articles
+		WHERE id = ANY($1)
+		  AND ai_stock_tickers IS NOT NULL
+		  AND ai_stock_tickers::text != '[]'
+	`
+
+	rows, err := s.db.Query(ctx, query, articleIDs)
+	if err != nil {
+		return fmt.Errorf("failed to query articles: %w", err)
+	}
+	defer rows.Close()
+
+	// Collect all unique stock symbols and article mappings
+	type articleTickers struct {
+		articleID int64
+		symbols   []string
+	}
+
+	articleTickersMap := make(map[int64][]string)
+	allSymbols := make(map[string]bool)
+
+	for rows.Next() {
+		var articleID int64
+		var tickersJSON []byte
+		if err := rows.Scan(&articleID, &tickersJSON); err != nil {
+			continue
+		}
+
+		var tickers []StockTicker
+		if err := json.Unmarshal(tickersJSON, &tickers); err != nil {
+			s.logger.WithError(err).Warnf("Failed to unmarshal tickers for article %d", articleID)
+			continue
+		}
+
+		symbols := make([]string, 0, len(tickers))
+		for _, ticker := range tickers {
+			symbols = append(symbols, ticker.Symbol)
+			allSymbols[ticker.Symbol] = true
+		}
+
+		if len(symbols) > 0 {
+			articleTickersMap[articleID] = symbols
+		}
+	}
+
+	if len(allSymbols) == 0 {
+		s.logger.Debug("No stock tickers found in articles")
+		return nil
+	}
+
+	// Convert to slice
+	symbolsSlice := make([]string, 0, len(allSymbols))
+	for symbol := range allSymbols {
+		symbolsSlice = append(symbolsSlice, symbol)
+	}
+
+	s.logger.Infof("🚀 Fetching stock data for %d unique symbols across %d articles using BATCH API",
+		len(symbolsSlice), len(articleTickersMap))
+
+	// Fetch all quotes in ONE batch API call (major cost saving!)
+	quotes, err := s.stockService.GetMultipleQuotes(ctx, symbolsSlice)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to fetch batch stock quotes")
+		return err
+	}
+
+	s.logger.Infof("✅ Fetched %d stock quotes in single batch call (saved %d API calls)",
+		len(quotes), len(symbolsSlice)-1)
+
+	// Update each article with relevant stock data
+	updateQuery := `
+		UPDATE articles
+		SET stock_data = $2,
+		    stock_data_updated_at = NOW()
+		WHERE id = $1
+	`
+
+	updatedCount := 0
+	for articleID, symbols := range articleTickersMap {
+		stockData := make(map[string]*StockQuote)
+
+		for _, symbol := range symbols {
+			if quote, ok := quotes[symbol]; ok {
+				// Convert to our local StockQuote type for JSON serialization
+				stockData[symbol] = &StockQuote{
+					Symbol:        quote.Symbol,
+					Name:          quote.Name,
+					Price:         quote.Price,
+					Change:        quote.Change,
+					ChangePercent: quote.ChangePercent,
+					Volume:        quote.Volume,
+					MarketCap:     quote.MarketCap,
+					Exchange:      quote.Exchange,
+				}
+			}
+		}
+
+		if len(stockData) > 0 {
+			stockDataJSON, _ := json.Marshal(stockData)
+			if _, err := s.db.Exec(ctx, updateQuery, articleID, stockDataJSON); err != nil {
+				s.logger.WithError(err).Warnf("Failed to update stock data for article %d", articleID)
+				continue
+			}
+			updatedCount++
+		}
+	}
+
+	s.logger.Infof("✅ Enriched %d articles with stock data (1 batch API call for %d symbols)",
+		updatedCount, len(symbolsSlice))
+
+	return nil
 }
 
 // Chat-specific query functions

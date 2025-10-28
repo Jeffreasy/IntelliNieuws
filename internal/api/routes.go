@@ -124,13 +124,31 @@ func SetupRoutes(
 		ai.Post("/chat", aiHandler.Chat)
 	}
 
-	// Stock ticker routes (public)
+	// Stock ticker routes (public) - FMP Free Tier Only
+	// Note: Many advanced features require FMP premium subscription ($14/month)
 	if stockHandler != nil {
 		stocks := api.Group("/stocks")
-		stocks.Get("/quote/:symbol", stockHandler.GetQuote)
-		stocks.Post("/quotes", stockHandler.GetMultipleQuotes)
-		stocks.Get("/profile/:symbol", stockHandler.GetProfile)
-		stocks.Get("/stats", stockHandler.GetStats)
+
+		// ✅ FREE TIER - Core endpoints (US stocks only)
+		stocks.Get("/quote/:symbol", stockHandler.GetQuote)       // Single quote (US stocks)
+		stocks.Get("/profile/:symbol", stockHandler.GetProfile)   // Basic profile
+		stocks.Get("/earnings", stockHandler.GetEarningsCalendar) // Earnings calendar
+		stocks.Get("/search", stockHandler.SearchSymbol)          // Symbol search
+		stocks.Get("/stats", stockHandler.GetStats)               // Cache stats
+
+		// ⚠️ PREMIUM FEATURES - Disabled for free tier
+		// Uncomment these if you upgrade to FMP Starter plan ($14/month)
+		// stocks.Post("/quotes", stockHandler.GetMultipleQuotes)        // Batch quotes
+		// stocks.Get("/news/:symbol", stockHandler.GetStockNews)        // Stock news
+		// stocks.Get("/historical/:symbol", stockHandler.GetHistoricalPrices)  // Historical
+		// stocks.Get("/metrics/:symbol", stockHandler.GetKeyMetrics)    // Metrics
+		// market := stocks.Group("/market")
+		// market.Get("/gainers", stockHandler.GetMarketGainers)         // Gainers
+		// market.Get("/losers", stockHandler.GetMarketLosers)           // Losers
+		// market.Get("/actives", stockHandler.GetMostActives)           // Actives
+		// stocks.Get("/sectors", stockHandler.GetSectorPerformance)     // Sectors
+		// stocks.Get("/ratings/:symbol", stockHandler.GetAnalystRatings) // Ratings
+		// stocks.Get("/target/:symbol", stockHandler.GetPriceTarget)    // Targets
 	}
 
 	// Stock ticker article routes (public)

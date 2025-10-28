@@ -77,23 +77,50 @@ go build -o api.exe ./cmd/api
 ## 🌐 API Endpoints
 
 ### Public Endpoints
+
+**Health & Monitoring:**
 ```bash
 GET  /health                          # System health
+GET  /health/live                     # Liveness probe
+GET  /health/ready                    # Readiness probe
+GET  /health/metrics                  # Detailed metrics
+```
+
+**Articles:**
+```bash
 GET  /api/v1/articles                 # List articles
 GET  /api/v1/articles/:id             # Get single article
 GET  /api/v1/articles/search          # Search articles
 GET  /api/v1/articles/by-ticker/:symbol  # Articles by stock ticker
+GET  /api/v1/sources                  # Available sources
+GET  /api/v1/categories               # Available categories
+```
+
+**AI Features:**
+```bash
 GET  /api/v1/ai/trending              # Trending topics
 GET  /api/v1/ai/sentiment/stats       # Sentiment statistics
-GET  /api/v1/stocks/quote/:symbol     # Stock quote data
+GET  /api/v1/ai/entity/:name          # Articles by entity
+POST /api/v1/ai/chat                  # Conversational AI chat
+```
+
+**Stock Data (FMP Free Tier - US Stocks Only):**
+```bash
+# ✅ Available with Free Tier
+GET  /api/v1/stocks/quote/:symbol     # Real-time quote (US stocks: AAPL, MSFT, etc.)
 GET  /api/v1/stocks/profile/:symbol   # Company profile
+GET  /api/v1/stocks/earnings          # Earnings calendar
+GET  /api/v1/stocks/search?q=query    # Search companies/symbols
+GET  /api/v1/stocks/stats             # Cache statistics
+
+# Note: Advanced features (batch, market data, non-US stocks) require premium
 ```
 
 ### Protected Endpoints (API Key Required)
 ```bash
 POST /api/v1/scrape                   # Trigger scraping
 POST /api/v1/ai/process/trigger       # Trigger AI processing
-POST /api/v1/stocks/quotes            # Batch stock quotes
+POST /api/v1/articles/:id/extract-content  # Extract full content
 GET  /api/v1/scraper/stats            # Scraper statistics
 ```
 

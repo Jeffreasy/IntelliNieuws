@@ -266,6 +266,23 @@ func (p *Processor) processArticles(ctx context.Context) {
 
 	aggregateResult.Duration = time.Since(startTime)
 
+	// AUTO-ENRICH: Fetch stock data for successfully processed articles with tickers
+	if aggregateResult.SuccessCount > 0 {
+		successfulIDs := make([]int64, 0, aggregateResult.SuccessCount)
+		for _, r := range aggregateResult.Results {
+			if r.Success {
+				successfulIDs = append(successfulIDs, r.ArticleID)
+			}
+		}
+
+		if len(successfulIDs) > 0 {
+			p.logger.Infof("🔄 Auto-enriching %d articles with stock data...", len(successfulIDs))
+			if err := p.service.EnrichArticlesWithStockData(batchCtx, successfulIDs); err != nil {
+				p.logger.WithError(err).Warn("Stock enrichment failed (non-critical)")
+			}
+		}
+	}
+
 	// PHASE 4: Graceful degradation - handle failures with backoff
 	if aggregateResult.FailureCount > 0 {
 		p.mu.Lock()

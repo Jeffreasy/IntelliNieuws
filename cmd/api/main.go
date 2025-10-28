@@ -233,6 +233,14 @@ func main() {
 
 		stockService = stock.NewService(stockConfig, redisClient, log)
 		stockHandler = handlers.NewStockHandler(stockService, log)
+
+		// Connect stock service to AI service for automatic enrichment via adapter
+		if aiService != nil {
+			stockAdapter := &StockServiceAdapter{service: stockService}
+			aiService.SetStockService(stockAdapter)
+			log.Info("Stock service connected to AI service for automatic enrichment")
+		}
+
 		log.Info("Stock service initialized successfully")
 	} else {
 		log.Info("Stock service disabled (no API key configured)")
@@ -340,4 +348,33 @@ func main() {
 	}
 
 	log.Info("Server exited")
+}
+
+// StockServiceAdapter adapts stock.Service to ai.StockService interface
+type StockServiceAdapter struct {
+	service *stock.Service
+}
+
+func (a *StockServiceAdapter) GetMultipleQuotes(ctx context.Context, symbols []string) (map[string]*ai.StockQuote, error) {
+	quotes, err := a.service.GetMultipleQuotes(ctx, symbols)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert stock.StockQuote to ai.StockQuote
+	result := make(map[string]*ai.StockQuote)
+	for symbol, quote := range quotes {
+		result[symbol] = &ai.StockQuote{
+			Symbol:        quote.Symbol,
+			Name:          quote.Name,
+			Price:         quote.Price,
+			Change:        quote.Change,
+			ChangePercent: quote.ChangePercent,
+			Volume:        quote.Volume,
+			MarketCap:     quote.MarketCap,
+			Exchange:      quote.Exchange,
+		}
+	}
+
+	return result, nil
 }
