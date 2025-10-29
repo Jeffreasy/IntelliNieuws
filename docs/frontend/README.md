@@ -1,12 +1,13 @@
 # 📚 Frontend Documentatie - Complete Gids
 
-Welkom bij de complete frontend documentatie voor de NieuwsScraper API. Deze gids helpt je om snel een moderne frontend applicatie te bouwen die volledig geïntegreerd is met onze news aggregation API.
+Welkom bij de complete frontend documentatie voor de IntelliNieuws API. Deze gids helpt je om snel een moderne frontend applicatie te bouwen die volledig geïntegreerd is met onze news aggregation API.
 
 ## 🎯 Wat kan de API?
 
-De NieuwsScraper API is een krachtige backend voor nieuws aggregatie met:
+De IntelliNieuws API is een krachtige backend voor nieuws aggregatie met:
 
-- ✅ **Multi-source scraping** - Aggregeert nieuws van meerdere Nederlandse bronnen
+### Core Features
+- ✅ **Multi-source scraping** - Aggregeert nieuws van Nederlandse bronnen (RSS + HTML + Browser)
 - ✅ **AI-powered enrichment** - Sentiment analyse, entity extraction, en categorisatie
 - ✅ **Real-time trending** - Detecteert trending onderwerpen op basis van recente artikelen
 - ✅ **Full-text search** - Krachtige zoekfunctionaliteit in artikelen
@@ -15,7 +16,38 @@ De NieuwsScraper API is een krachtige backend voor nieuws aggregatie met:
 - ✅ **Rate limiting** - Bescherming tegen overbelasting
 - ✅ **RESTful design** - Standaard HTTP methods en response formats
 
+### NEW: Stock Market Integration (v2.1) ✨
+- ✅ **Real-time Stock Quotes** - FMP API voor US aandelen (AAPL, MSFT, GOOGL, etc.)
+- ✅ **Company Profiles** - Bedrijfsinformatie en financial data
+- ✅ **Earnings Calendar** - Upcoming earnings announcements
+- ✅ **Symbol Search** - Zoek bedrijven en stock symbols
+- ✅ **Auto-Enrichment** - Automatische stock data bij artikelen
+- ✅ **Free Tier** - Werkt met FMP gratis tier (250 calls/dag)
+
+### NEW: Email Integration (v2.1) ✨
+- ✅ **Outlook IMAP** - Ontvang emails als nieuws items
+- ✅ **Sender Filtering** - Whitelist-based (bijv. noreply@x.ai)
+- ✅ **Auto-Processing** - Email → Article conversion
+- ✅ **Scheduled Polling** - Configurable interval (5 min default)
+- ✅ **AI Enrichment** - Automatic sentiment/entity extraction
+- ✅ **Database Tracking** - Complete email metadata
+
 ## 📖 Documentatie Structuur
+
+### NEW: Stock & Email Features (v2.1) ✨
+
+**Stock Market Integration:**
+- 💹 **[Stock API Reference](../api/stock-api-reference.md)** - Complete FMP API docs (432 lines)
+- 📊 **[Stock Tickers Integration](stock-tickers-integration.md)** - Frontend integration guide
+- 💰 **[FMP Free Tier Guide](../FMP-FREE-TIER-FINAL.md)** - Gratis tier setup & limitations
+- ⚡ **[FMP Quick Start](../quick-start-fmp.md)** - 5-minute setup
+
+**Email Integration:**
+- 📧 **[Email Integration Guide](../features/email-integration.md)** - Complete IMAP setup (471 lines)
+- ⚡ **[Email Quick Start](../features/email-quickstart.md)** - 5-minute email setup
+- 📝 **[Email Summary](../features/EMAIL-INTEGRATION-SUMMARY.md)** - Implementation details
+
+### Core Documentation
 
 ### 1. **[FRONTEND_API.md](FRONTEND_API.md)** - Core API Reference
 **Start hier als je nieuw bent!**
