@@ -1,12 +1,14 @@
 # IntelliNieuws
 
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success)]()
-[![Version](https://img.shields.io/badge/Version-2.0-blue)]()
+[![Version](https://img.shields.io/badge/Version-2.1-blue)]()
 [![Performance](https://img.shields.io/badge/Performance-8x%20Faster-brightgreen)]()
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)]()
 [![AI](https://img.shields.io/badge/AI-Powered-purple)]()
+[![Stock](https://img.shields.io/badge/FMP-Integrated-orange)]()
+[![Email](https://img.shields.io/badge/Email-IMAP-blue)]()
 
-Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, entity extraction en trending topic detection.
+Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, entity extraction, real-time stock data, en email integration.
 
 ## ✨ Highlights
 
@@ -14,7 +16,9 @@ Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen 
 - **💰 60% Goedkoper** - Intelligente AI response caching en batch processing
 - **🎯 99.5% Uptime** - Circuit breakers en automatische recovery
 - **🤖 AI-Verrijkt** - Sentiment analyse, entity extraction, trending topics
-- **📊 Schaalbaar** - 10,000+ artikelen per dag
+- **📊 Real-time Stock Data** - FMP API integration voor US aandelen ✨ NEW
+- **📧 Email Integration** - Outlook IMAP voor noreply@x.ai emails ✨ NEW
+- **📈 Schaalbaar** - 10,000+ artikelen per dag
 
 ## 🚀 Quick Start
 
@@ -42,31 +46,46 @@ go build -o api.exe ./cmd/api
 
 ## 🎯 Kern Features
 
-### Ethisch Scrapen
-- ✅ Respecteert robots.txt en rate limiting (min. 5s tussen requests)
-- ✅ RSS feeds als primaire bron
-- ✅ HTML/Browser scraping als optionele fallback
-- ✅ Duplicate detection via SHA256 hashing
+### 📰 Multi-Source News Aggregation
+- ✅ **RSS Feeds** - Primary source (NU.nl, AD.nl, NOS.nl)
+- ✅ **HTML Extraction** - Intelligent content parsing
+- ✅ **Headless Browser** - JavaScript-rendered content support
+- ✅ **Email Integration** - IMAP voor noreply@x.ai emails ✨ NEW
+- ✅ **Ethisch Scrapen** - Respecteert robots.txt, rate limiting
+- ✅ **Duplicate Detection** - SHA256 hash-based deduplication
 
-### AI-Verrijking
-- 🤖 **Sentiment Analyse** - Positief/negatief/neutraal detectie
-- 👤 **Entity Extraction** - Personen, organisaties, locaties, **aandelen-tickers**
-- 📈 **Stock Ticker Detection** - Automatische detectie van ASML, Shell, AAPL, etc.
--  **Auto-Categorisatie** - Intelligente categorie toewijzing
+### 🤖 AI-Verrijking (OpenAI GPT)
+- 🎯 **Sentiment Analyse** - Positief/negatief/neutraal detectie
+- 👤 **Entity Extraction** - Personen, organisaties, locaties
+- 📈 **Stock Ticker Detection** - Automatische detectie (AAPL, MSFT, ASML, etc.)
+- 🏷️ **Auto-Categorisatie** - Intelligente categorie toewijzing
 - 🔑 **Keyword Extraction** - Relevante keywords met scores
 - 🔥 **Trending Topics** - Real-time trending onderwerpen
+- 💬 **Conversational AI** - Chat interface voor nieuws queries
 
-### Performance
-- 💾 **Multi-Layer Caching** - In-memory + Redis + Materialized views
-- ⚡ **Parallel Processing** - Worker pools voor 4-8x throughput
-- 🔄 **Smart Retry** - Exponential backoff voor 99.5% success rate
+### 📊 Stock Market Integration (FMP API) ✨ NEW
+- 💹 **Real-time Quotes** - US aandelen (gratis tier)
+- 🏢 **Company Profiles** - Bedrijfsinformatie
+- 📅 **Earnings Calendar** - Komende earnings announcements
+- 🔍 **Symbol Search** - Zoek bedrijven en tickers
+- 💰 **Cost Optimized** - Gratis tier binnen limieten
+- 🔄 **Auto-Enrichment** - Automatic stock data toevoeging
+
+### 📧 Email News Integration ✨ NEW
+- 📬 **Outlook IMAP** - Direct email ontvangst
+- 🎯 **Sender Filtering** - Whitelist (noreply@x.ai)
+- ⏰ **Scheduled Polling** - Configurable interval (5 min)
+- 📝 **Auto-Processing** - Email → Article conversion
+- 💾 **Database Tracking** - Complete email metadata
+- 🔄 **AI Ready** - Automatic sentiment/entity extraction
+
+### ⚡ Performance & Infrastructure
+- 💾 **Multi-Layer Caching** - Redis + In-memory + Materialized views
+- ⚡ **Parallel Processing** - Worker pools (4-8x throughput)
+- 🔄 **Smart Retry** - Exponential backoff (99.5% success rate)
 - 📊 **Query Optimization** - 98% database query reductie
-
-### API & Monitoring
-- 🌐 **RESTful API** - Complete CRUD operaties
-- 🏥 **Health Checks** - Kubernetes-compatible probes
-- 📈 **Metrics** - Prometheus-compatible monitoring
-- 🔐 **Security** - API key auth en rate limiting
+- 🏥 **Health Monitoring** - Comprehensive health checks
+- 🔐 **Security** - API key auth, rate limiting, CORS
 
 ## 📊 Ondersteunde Bronnen
 
@@ -199,13 +218,51 @@ Open [http://localhost:3000](http://localhost:3000) - Ready! 🎉
 
 Alle documentatie is beschikbaar in de [`/docs`](docs/) folder:
 
-- 🚀 **[Getting Started](docs/getting-started/README.md)** - Installatie en setup
-- 🌐 **[API Reference](docs/api/README.md)** - Complete API documentatie
-- 💻 **[Frontend Guide](docs/frontend/README.md)** - Frontend integratie
-- ⚙️ **[Features](docs/features/ai-processing.md)** - AI en scraping features
-- 📈 **[Stock Tickers](docs/features/stock-tickers.md)** - Aandelen extraction & API integratie
-- 🚀 **[Deployment](docs/deployment/deployment-guide.md)** - Production deployment
-- 🛠️ **[Operations](docs/operations/quick-reference.md)** - Daily operations
+### 🚀 Getting Started
+- **[Quick Start Guide](docs/getting-started/quick-start.md)** - 5-minute setup
+- **[Installation](docs/getting-started/installation.md)** - Detailed installation
+- **[Windows Setup](docs/getting-started/windows-setup.md)** - Windows-specific guide
+
+### 💹 Stock Integration (FMP API) ✨ NEW
+- **[FMP Free Tier Guide](docs/FMP-FREE-TIER-FINAL.md)** - Gratis tier features & setup
+- **[FMP Quick Start](docs/quick-start-fmp.md)** - 5-min FMP setup
+- **[Stock API Reference](docs/api/stock-api-reference.md)** - Complete API docs (432 lines)
+- **[FMP Integration Details](docs/features/fmp-integration-complete.md)** - Technical implementation
+- **[Cost Optimization](docs/features/cost-optimization-report.md)** - Cost analysis
+- **[Get FMP API Key](docs/GET-FMP-API-KEY.md)** - Step-by-step API key guide
+- **[Implementation Summary](docs/implementation/fmp-api-integration.md)** - Complete overview
+
+### 📧 Email Integration (Outlook IMAP) ✨ NEW
+- **[Email Integration Guide](docs/features/email-integration.md)** - Complete setup (471 lines)
+- **[Email Quick Start](docs/features/email-quickstart.md)** - 5-min email setup
+- **[Email Summary](docs/features/EMAIL-INTEGRATION-SUMMARY.md)** - Implementation details
+
+### 🤖 AI Features
+- **[AI Processing](docs/features/ai-processing.md)** - Sentiment, entities, keywords
+- **[AI Quick Start](docs/features/ai-quickstart.md)** - Get started with AI
+- **[AI Summaries](docs/features/ai-summaries.md)** - Text summarization
+- **[Chat API](docs/features/chat-api.md)** - Conversational interface
+- **[Stock Tickers](docs/features/stock-tickers.md)** - Stock ticker detection
+
+### 🌐 API Documentation
+- **[API Overview](docs/api/README.md)** - Complete API reference
+- **[Stock API](docs/api/stock-api-reference.md)** - FMP endpoints ✨ NEW
+- **[Frontend Integration](docs/frontend/README.md)** - Frontend guides
+
+### 🔧 Features & Technical
+- **[Scraping Features](docs/features/scraping.md)** - RSS, HTML, Browser
+- **[Content Extraction](docs/features/content-extraction.md)** - Full article extraction
+- **[Headless Browser](docs/features/headless-browser.md)** - JavaScript rendering
+
+### 🚀 Deployment & Operations
+- **[Deployment Guide](docs/deployment/deployment-guide.md)** - Production deployment
+- **[Operations Guide](docs/operations/quick-reference.md)** - Daily operations
+- **[Troubleshooting](docs/operations/troubleshooting.md)** - Common issues
+- **[Restart Backend](docs/operations/restart-backend.md)** - Quick restart guide
+
+### 📖 Reference
+- **[FMP API Documentation](docs/reference/fmp-api-documentation.txt)** - Complete FMP reference ✨ NEW
+- **[Changelog](docs/changelog/v2.0.md)** - Version history
 
 ## 🔐 Security & Compliance
 
