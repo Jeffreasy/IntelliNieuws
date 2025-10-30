@@ -82,6 +82,14 @@ type ScraperConfig struct {
 	BrowserWaitAfterLoad  time.Duration
 	BrowserFallbackOnly   bool
 	BrowserMaxConcurrent  int
+	// Stealth features (v3.0)
+	EnableUserAgentRotation bool
+	EnableProxyRotation     bool
+	ProxyProvider           string
+	ScraperAPIKey           string
+	ScrapeDoToken           string
+	ProxyRotationStrategy   string
+	ProxyUseOnErrorRate     float64
 }
 
 // APIConfig holds API-specific configuration
@@ -227,6 +235,13 @@ func Load() (*Config, error) {
 			BrowserWaitAfterLoad:        time.Duration(v.GetInt("BROWSER_WAIT_AFTER_LOAD_MS")) * time.Millisecond,
 			BrowserFallbackOnly:         v.GetBool("BROWSER_FALLBACK_ONLY"),
 			BrowserMaxConcurrent:        v.GetInt("BROWSER_MAX_CONCURRENT"),
+			EnableUserAgentRotation:     v.GetBool("ENABLE_USER_AGENT_ROTATION"),
+			EnableProxyRotation:         v.GetBool("ENABLE_PROXY_ROTATION"),
+			ProxyProvider:               v.GetString("PROXY_PROVIDER"),
+			ScraperAPIKey:               v.GetString("SCRAPERAPI_KEY"),
+			ScrapeDoToken:               v.GetString("SCRAPEDO_TOKEN"),
+			ProxyRotationStrategy:       v.GetString("PROXY_ROTATION_STRATEGY"),
+			ProxyUseOnErrorRate:         v.GetFloat64("PROXY_USE_ON_ERROR_RATE"),
 		},
 		API: APIConfig{
 			RateLimitRequests:      v.GetInt("API_RATE_LIMIT_REQUESTS"),
@@ -376,6 +391,15 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("BROWSER_WAIT_AFTER_LOAD_MS", 2000)
 	v.SetDefault("BROWSER_FALLBACK_ONLY", true)
 	v.SetDefault("BROWSER_MAX_CONCURRENT", 2)
+
+	// Stealth defaults (v3.0)
+	v.SetDefault("ENABLE_USER_AGENT_ROTATION", false)
+	v.SetDefault("ENABLE_PROXY_ROTATION", false)
+	v.SetDefault("PROXY_PROVIDER", "scraperapi")
+	v.SetDefault("SCRAPERAPI_KEY", "")
+	v.SetDefault("SCRAPEDO_TOKEN", "")
+	v.SetDefault("PROXY_ROTATION_STRATEGY", "failover")
+	v.SetDefault("PROXY_USE_ON_ERROR_RATE", 0.10)
 
 	// Stock API defaults
 	v.SetDefault("STOCK_API_PROVIDER", "fmp")

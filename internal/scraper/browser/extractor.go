@@ -11,17 +11,19 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/jeffrey/intellinieuws/pkg/logger"
+	"github.com/jeffrey/intellinieuws/pkg/utils"
 )
 
 // Extractor extracts content from JavaScript-rendered pages using headless Chrome
 type Extractor struct {
-	pool          *BrowserPool
-	logger        *logger.Logger
-	timeout       time.Duration
-	waitAfterLoad time.Duration
-	fallbackOnly  bool
-	maxConcurrent int
-	semaphore     chan struct{}
+	pool             *BrowserPool
+	logger           *logger.Logger
+	timeout          time.Duration
+	waitAfterLoad    time.Duration
+	fallbackOnly     bool
+	maxConcurrent    int
+	semaphore        chan struct{}
+	userAgentRotator *utils.UserAgentRotator
 }
 
 // ExtractorConfig holds browser extractor configuration
@@ -35,13 +37,14 @@ type ExtractorConfig struct {
 // NewExtractor creates a new browser-based content extractor
 func NewExtractor(pool *BrowserPool, config ExtractorConfig, log *logger.Logger) *Extractor {
 	return &Extractor{
-		pool:          pool,
-		logger:        log.WithComponent("browser-extractor"),
-		timeout:       config.Timeout,
-		waitAfterLoad: config.WaitAfterLoad,
-		fallbackOnly:  config.FallbackOnly,
-		maxConcurrent: config.MaxConcurrent,
-		semaphore:     make(chan struct{}, config.MaxConcurrent),
+		pool:             pool,
+		logger:           log.WithComponent("browser-extractor"),
+		timeout:          config.Timeout,
+		waitAfterLoad:    config.WaitAfterLoad,
+		fallbackOnly:     config.FallbackOnly,
+		maxConcurrent:    config.MaxConcurrent,
+		semaphore:        make(chan struct{}, config.MaxConcurrent),
+		userAgentRotator: utils.NewUserAgentRotator(true), // v3.0: Enable rotation
 	}
 }
 
@@ -95,8 +98,13 @@ func (e *Extractor) ExtractContent(ctx context.Context, url string, source strin
 		e.logger.WithError(err).Warn("Failed to apply stealth mode")
 	}
 
-	// Set realistic user agent (Chrome 120 on Windows)
+	// v3.0: Use rotated realistic user agent for stealth
 	userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	if e.userAgentRotator != nil {
+		userAgent = e.userAgentRotator.GetUserAgent()
+		e.logger.Debugf("Using rotated user-agent for stealth")
+	}
+
 	if err := page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: userAgent}); err != nil {
 		e.logger.WithError(err).Warn("Failed to set user agent")
 	}

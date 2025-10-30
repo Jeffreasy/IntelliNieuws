@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/jeffrey/intellinieuws/pkg/logger"
+	"github.com/jeffrey/intellinieuws/pkg/utils"
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -24,6 +25,7 @@ type ContentExtractor struct {
 	sanitizer        *bluemonday.Policy
 	logger           *logger.Logger
 	userAgent        string
+	userAgentRotator *utils.UserAgentRotator
 	browserExtractor BrowserExtractor
 	useBrowser       bool
 }
@@ -39,9 +41,10 @@ func NewContentExtractor(userAgent string, log *logger.Logger) *ContentExtractor
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-		sanitizer: bluemonday.StrictPolicy(), // Only text, no HTML
-		logger:    log.WithComponent("html-extractor"),
-		userAgent: userAgent,
+		sanitizer:        bluemonday.StrictPolicy(), // Only text, no HTML
+		logger:           log.WithComponent("html-extractor"),
+		userAgent:        userAgent,
+		userAgentRotator: utils.NewUserAgentRotator(true), // v3.0: Enable rotation
 	}
 }
 
@@ -133,16 +136,42 @@ func (e *ContentExtractor) extractHTML(ctx context.Context, url string, source s
 	return content, nil
 }
 
-// fetchHTML downloads HTML from URL
+// fetchHTML downloads HTML from URL with stealth headers
 func (e *ContentExtractor) fetchHTML(ctx context.Context, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", e.userAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "nl-NL,nl;q=0.9,en;q=0.8")
+	// v3.0: Use rotated user-agent if enabled, otherwise use default
+	userAgent := e.userAgent
+	if e.userAgentRotator != nil {
+		userAgent = e.userAgentRotator.GetUserAgent()
+	}
+
+	// v3.0: Set realistic headers with rotation
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+
+	// Rotate Accept-Language for realism
+	acceptLang := "nl-NL,nl;q=0.9,en;q=0.8"
+	if e.userAgentRotator != nil {
+		acceptLang = e.userAgentRotator.GetAcceptLanguage()
+	}
+	req.Header.Set("Accept-Language", acceptLang)
+
+	// Add referer if rotator provides one (realistic browsing)
+	if e.userAgentRotator != nil {
+		if referer := e.userAgentRotator.GetReferer(); referer != "" {
+			req.Header.Set("Referer", referer)
+		}
+	}
+
+	// Additional realistic headers
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("DNT", "1")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	resp, err := e.client.Do(req)
 	if err != nil {
