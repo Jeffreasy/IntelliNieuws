@@ -1,11 +1,21 @@
 # IntelliNieuws Documentation
 
-Welkom bij de officiële documentatie van IntelliNieuws - een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse en trending topic detection.
+Welkom bij de officiële documentatie van IntelliNieuws - een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, trending topic detection, en **production-ready Docker deployment**.
+
+## 🆕 Nieuw in v2.2
+
+- 🐳 **[Docker Setup (Production-Ready)](docker-setup.md)** - Complete containerized deployment met auto-backup
+- 🔒 **Security Hardening** - Redis authentication, geen hardcoded credentials
+- 💾 **Automatische Backups** - Dagelijkse database backups (7 dagen retentie)
+- ⚡ **Redis Optimalisaties** - Connection pooling (20 conns) & persistence
+- 📊 **Resource Management** - CPU/Memory limits per service
+- 🛠️ **Cache Invalidation** - Intelligente cache management service
 
 ## 📚 Documentatie Overzicht
 
 ### 🚀 Getting Started
 Kom snel op gang met IntelliNieuws
+- **[Docker Setup](docker-setup.md)** - **✨ Aanbevolen: Production-ready deployment**
 - [Quick Start Guide](getting-started/quick-start.md) - In 5 minuten aan de slag
 - [Installation Guide](getting-started/installation.md) - Complete installatie instructies
 - [Windows Setup](getting-started/windows-setup.md) - Windows-specifieke setup
@@ -34,9 +44,10 @@ Diepgaande feature documentatie
 - [Caching System](features/caching.md) - Multi-layer caching
 - [Chat API](features/chat-api.md) - Conversational AI interface
 
-### 🚀 Deployment
+### 🚀 Deployment & Infrastructure
 Production deployment en configuratie
-- [Deployment Guide](deployment/deployment-guide.md) - Stap-voor-stap deployment
+- **[Docker Setup](docker-setup.md)** - **✨ Preferred: Docker Compose deployment**
+- [Deployment Guide](deployment/deployment-guide.md) - Stap-voor-stap manual deployment
 - [Configuration](deployment/configuration.md) - Environment variables
 - [Monitoring](deployment/monitoring.md) - Health checks en metrics
 - [Maintenance](deployment/maintenance.md) - Dagelijkse operaties
@@ -67,10 +78,11 @@ Versie geschiedenis en wijzigingen
 ## 🎯 Quick Navigation
 
 ### Ik wil...
-- **Snel starten** → [Quick Start](getting-started/quick-start.md)
+- **Snel starten met Docker** → [Docker Setup](docker-setup.md) **✨ Nieuw!**
+- **Lokaal starten** → [Quick Start](getting-started/quick-start.md)
 - **API gebruiken** → [API Reference](api/endpoints.md)
 - **Frontend bouwen** → [Frontend Guide](frontend/README.md)
-- **Deployen** → [Deployment Guide](deployment/deployment-guide.md)
+- **Deployen** → [Docker Setup](docker-setup.md) of [Manual Deployment](deployment/deployment-guide.md)
 - **Troubleshooting** → [Operations Guide](operations/troubleshooting.md)
 
 ### Voor verschillende rollen
@@ -78,15 +90,17 @@ Versie geschiedenis en wijzigingen
 - **👨‍💻 Frontend Developer** → [Frontend Integration](frontend/README.md)
 - **🔧 Backend Developer** → [Architecture](development/architecture.md)
 - **🛠️ Operations** → [Quick Reference](operations/quick-reference.md)
-- **📊 DevOps** → [Deployment Guide](deployment/deployment-guide.md)
+- **📊 DevOps** → [Docker Setup](docker-setup.md) **✨ Start hier!**
 
 ## 📊 Project Status
 
-**Versie:** 2.0 (Optimized Edition)  
-**Status:** Production Ready ✅  
-**Performance:** 4-8x sneller dan v1.0  
-**Kosten:** 50-60% reductie  
+**Versie:** 2.2 (Docker & Security Edition) **✨ Nieuw!**
+**Status:** Production Ready ✅
+**Performance:** 8x sneller dan v1.0
+**Kosten:** 50-60% reductie
 **Reliability:** 99.5% uptime
+**Security:** Hardened with best practices
+**Infrastructure:** Fully containerized with Docker
 
 ## 🤝 Support
 

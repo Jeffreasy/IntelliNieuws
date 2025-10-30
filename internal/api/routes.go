@@ -26,6 +26,8 @@ func SetupRoutes(
 	scraperHandler *handlers.ScraperHandler,
 	aiHandler *handlers.AIHandler,
 	stockHandler *handlers.StockHandler,
+	emailHandler *handlers.EmailHandler,
+	cacheHandler *handlers.CacheHandler,
 	rateLimiter *middleware.RateLimiter,
 	auth *middleware.APIKeyAuth,
 	log *logger.Logger,
@@ -162,6 +164,13 @@ func SetupRoutes(
 		protected.Use(auth.Handler())
 	}
 
+	// Email integration routes (protected)
+	if emailHandler != nil {
+		emails := protected.Group("/email")
+		emails.Post("/fetch-existing", emailHandler.FetchExistingEmails) // Manually fetch existing emails
+		emails.Get("/stats", emailHandler.GetStats)                      // Email processing stats
+	}
+
 	// Scraper routes (protected)
 	protected.Post("/scrape", scraperHandler.TriggerScrape)
 	protected.Get("/scraper/stats", scraperHandler.GetScraperStats)
@@ -170,6 +179,17 @@ func SetupRoutes(
 	if aiHandler != nil {
 		protected.Post("/articles/:id/process", aiHandler.ProcessArticle)
 		protected.Post("/ai/process/trigger", aiHandler.TriggerProcessing)
+	}
+
+	// Cache management routes (protected)
+	if cacheHandler != nil {
+		cacheRoutes := protected.Group("/cache")
+		cacheRoutes.Get("/stats", cacheHandler.GetStatistics)         // Cache statistics
+		cacheRoutes.Get("/keys", cacheHandler.GetCacheKeys)           // List cache keys
+		cacheRoutes.Get("/size", cacheHandler.GetCacheSize)           // Total cache size
+		cacheRoutes.Get("/memory", cacheHandler.GetMemoryUsage)       // Memory usage
+		cacheRoutes.Post("/invalidate", cacheHandler.InvalidateCache) // Invalidate cache
+		cacheRoutes.Post("/warm", cacheHandler.WarmCache)             // Warm cache
 	}
 
 	// 404 handler

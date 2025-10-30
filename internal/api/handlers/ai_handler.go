@@ -114,15 +114,25 @@ func (h *AIHandler) GetSentimentStats(c *fiber.Ctx) error {
 	requestID := c.Locals("requestid").(string)
 	source := c.Query("source")
 
+	// DEBUG LOG: Request received
+	h.logger.Infof("📊 GetSentimentStats request - source=%s, start_date=%s, end_date=%s",
+		source, c.Query("start_date"), c.Query("end_date"))
+
 	var startDate, endDate *time.Time
 	if startStr := c.Query("start_date"); startStr != "" {
 		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
 			startDate = &t
+			h.logger.Debugf("Parsed start_date: %v", startDate)
+		} else {
+			h.logger.Warnf("Failed to parse start_date '%s': %v", startStr, err)
 		}
 	}
 	if endStr := c.Query("end_date"); endStr != "" {
 		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
 			endDate = &t
+			h.logger.Debugf("Parsed end_date: %v", endDate)
+		} else {
+			h.logger.Warnf("Failed to parse end_date '%s': %v", endStr, err)
 		}
 	}
 
@@ -130,25 +140,37 @@ func (h *AIHandler) GetSentimentStats(c *fiber.Ctx) error {
 	cacheKey := cache.GenerateKey(cache.PrefixAISentiment, source, c.Query("start_date"), c.Query("end_date"))
 	var stats *ai.SentimentStats
 
+	h.logger.Debugf("Checking cache with key: %s", cacheKey)
+
 	if h.cache != nil && h.cache.IsAvailable() {
 		if err := h.cache.Get(c.Context(), cacheKey, &stats); err == nil {
-			h.logger.Debugf("Cache HIT for sentiment stats")
+			h.logger.Infof("✅ Cache HIT for sentiment stats - returning cached data")
+			h.logger.Debugf("Cached stats: Total=%d, Positive=%d, Negative=%d, Neutral=%d",
+				stats.TotalArticles, stats.PositiveCount, stats.NegativeCount, stats.NeutralCount)
 			return c.JSON(models.NewSuccessResponse(stats, requestID))
+		} else {
+			h.logger.Debugf("Cache MISS for sentiment stats: %v", err)
 		}
+	} else {
+		h.logger.Debug("Cache not available, querying database directly")
 	}
 
 	stats, err := h.aiService.GetSentimentStats(c.Context(), source, startDate, endDate)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to get sentiment stats")
+		h.logger.WithError(err).Error("❌ Failed to get sentiment stats from database")
 		return c.Status(fiber.StatusInternalServerError).JSON(
 			models.NewErrorResponse("DATABASE_ERROR", "Failed to retrieve sentiment statistics", err.Error(), requestID),
 		)
 	}
 
+	h.logger.Infof("✅ Retrieved sentiment stats from database - Total: %d articles", stats.TotalArticles)
+
 	// Cache the result (5 minutes TTL for stats)
 	if h.cache != nil && h.cache.IsAvailable() {
 		if err := h.cache.Set(c.Context(), cacheKey, stats); err != nil {
-			h.logger.WithError(err).Warn("Failed to cache sentiment stats")
+			h.logger.WithError(err).Warn("⚠️  Failed to cache sentiment stats")
+		} else {
+			h.logger.Debugf("Cached sentiment stats with key: %s", cacheKey)
 		}
 	}
 

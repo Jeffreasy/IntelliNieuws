@@ -3,6 +3,8 @@ package scraper
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
+	"strings"
 	"sync"
 	"time"
 
@@ -423,7 +425,7 @@ func (s *Service) ScrapeAllSources(ctx context.Context) (map[string]*ScrapingRes
 	return results, nil
 }
 
-// ScrapeWithRetry scrapes with retry logic
+// ScrapeWithRetry scrapes with enhanced retry logic and exponential backoff
 func (s *Service) ScrapeWithRetry(ctx context.Context, source string, feedURL string) (*ScrapingResult, error) {
 	var lastErr error
 	var result *ScrapingResult
@@ -435,12 +437,32 @@ func (s *Service) ScrapeWithRetry(ctx context.Context, source string, feedURL st
 			return result, nil
 		}
 
-		if attempt < s.config.RetryAttempts {
-			s.logger.Warnf("Scrape attempt %d/%d failed for %s: %v. Retrying...",
-				attempt, s.config.RetryAttempts, source, lastErr)
+		// Check if error is rate limit (429) or timeout
+		isRateLimit := isRateLimitError(lastErr)
+		isTimeout := isTimeoutError(lastErr)
 
-			// Wait before retry (exponential backoff)
-			backoff := time.Duration(attempt) * time.Second * 2
+		if attempt < s.config.RetryAttempts {
+			// Calculate exponential backoff with jitter (5s, 10s, 20s)
+			baseDelay := time.Duration(1<<uint(attempt-1)) * 5 * time.Second
+
+			// Add jitter (±20%) to prevent thundering herd
+			jitter := time.Duration(float64(baseDelay) * 0.2 * (2.0*rand.Float64() - 1.0))
+			backoff := baseDelay + jitter
+
+			// Special handling for rate limits (longer backoff)
+			if isRateLimit {
+				backoff = backoff * 3 // 15s, 30s, 60s for 429 errors
+				s.logger.Warnf("Rate limit detected for %s (attempt %d/%d), extended backoff: %v",
+					source, attempt, s.config.RetryAttempts, backoff)
+			} else if isTimeout {
+				s.logger.Warnf("Timeout for %s (attempt %d/%d), retrying in %v",
+					source, attempt, s.config.RetryAttempts, backoff)
+			} else {
+				s.logger.Warnf("Scrape attempt %d/%d failed for %s: %v. Retrying in %v...",
+					attempt, s.config.RetryAttempts, source, lastErr, backoff)
+			}
+
+			// Wait before retry with context cancellation support
 			select {
 			case <-time.After(backoff):
 			case <-ctx.Done():
@@ -603,6 +625,28 @@ func (s *Service) GetContentExtractionStats(ctx context.Context) (map[string]int
 		"content_extraction": stats,
 		"browser_pool":       s.getBrowserPoolStats(),
 	}, nil
+}
+
+// isRateLimitError checks if error is a rate limit (429) error
+func isRateLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "429") ||
+		strings.Contains(errStr, "rate limit") ||
+		strings.Contains(errStr, "too many requests")
+}
+
+// isTimeoutError checks if error is a timeout error
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "deadline exceeded") ||
+		strings.Contains(errStr, "context canceled")
 }
 
 // getBrowserPoolStats returns browser pool statistics

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -13,13 +12,13 @@ import (
 
 // BrowserPool manages reusable browser instances for efficient scraping
 type BrowserPool struct {
-	browsers  []*rod.Browser
-	mu        sync.Mutex
+	available chan *rod.Browser // Channel for available browsers (optimized)
 	size      int
 	launcher  *launcher.Launcher
 	logger    *logger.Logger
 	launchURL string
 	closed    bool
+	mu        sync.Mutex
 }
 
 // NewBrowserPool creates a new browser pool with specified size
@@ -51,7 +50,7 @@ func NewBrowserPool(size int, log *logger.Logger) (*BrowserPool, error) {
 	poolLogger.Infof("Chrome launched successfully at %s", url)
 
 	pool := &BrowserPool{
-		browsers:  make([]*rod.Browser, 0, size),
+		available: make(chan *rod.Browser, size), // Buffered channel for instant signaling
 		size:      size,
 		launcher:  l,
 		launchURL: url,
@@ -66,7 +65,9 @@ func NewBrowserPool(size int, log *logger.Logger) (*BrowserPool, error) {
 			MustConnect().
 			NoDefaultDevice(). // Remove automation markers
 			MustIncognito()    // Use incognito mode
-		pool.browsers = append(pool.browsers, browser)
+
+		// Put browser in available channel immediately
+		pool.available <- browser
 		poolLogger.Debugf("Browser instance %d/%d created (stealth enabled)", i+1, size)
 	}
 
@@ -75,69 +76,74 @@ func NewBrowserPool(size int, log *logger.Logger) (*BrowserPool, error) {
 }
 
 // Acquire gets a browser from the pool (blocks if none available)
+// Optimized: Uses channel-based signaling instead of polling for instant acquisition
 func (p *BrowserPool) Acquire(ctx context.Context) (*rod.Browser, error) {
-	// Wait for available browser with timeout
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	// Check if pool is closed first
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return nil, fmt.Errorf("browser pool is closed")
+	}
+	p.mu.Unlock()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-ticker.C:
-			p.mu.Lock()
-			if p.closed {
-				p.mu.Unlock()
-				return nil, fmt.Errorf("browser pool is closed")
-			}
-
-			if len(p.browsers) > 0 {
-				browser := p.browsers[0]
-				p.browsers = p.browsers[1:]
-				p.mu.Unlock()
-				p.logger.Debugf("Browser acquired (%d remaining in pool)", len(p.browsers))
-				return browser, nil
-			}
-			p.mu.Unlock()
-		}
+	// Wait for available browser via channel (instant, no polling delay)
+	select {
+	case browser := <-p.available:
+		p.logger.Debugf("Browser acquired (%d remaining in pool)", len(p.available))
+		return browser, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
 // Release returns a browser to the pool
+// Optimized: Non-blocking channel send for instant availability signaling
 func (p *BrowserPool) Release(browser *rod.Browser) {
 	if browser == nil {
 		return
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	closed := p.closed
+	p.mu.Unlock()
 
-	if p.closed {
+	if closed {
 		// Pool is closed, close this browser
 		browser.MustClose()
+		p.logger.Debug("Browser closed (pool is closed)")
 		return
 	}
 
-	p.browsers = append(p.browsers, browser)
-	p.logger.Debugf("Browser released (%d available in pool)", len(p.browsers))
+	// Non-blocking send to available channel
+	select {
+	case p.available <- browser:
+		p.logger.Debugf("Browser released (%d available in pool)", len(p.available))
+	default:
+		// Channel full (should never happen with correct pool size)
+		p.logger.Warn("Browser pool channel full, closing browser")
+		browser.MustClose()
+	}
 }
 
 // Close shuts down all browsers and cleans up resources
 func (p *BrowserPool) Close() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if p.closed {
+		p.mu.Unlock()
 		return
 	}
-
 	p.closed = true
+	p.mu.Unlock()
+
 	p.logger.Info("Closing browser pool...")
 
-	// Close all browsers
-	for i, browser := range p.browsers {
+	// Close channel and drain all browsers
+	close(p.available)
+	count := 0
+	for browser := range p.available {
 		browser.MustClose()
-		p.logger.Debugf("Closed browser instance %d/%d", i+1, len(p.browsers))
+		count++
+		p.logger.Debugf("Closed browser instance %d/%d", count, p.size)
 	}
 
 	// Cleanup launcher
@@ -150,10 +156,11 @@ func (p *BrowserPool) GetStats() map[string]interface{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	available := len(p.available)
 	return map[string]interface{}{
 		"pool_size":  p.size,
-		"available":  len(p.browsers),
-		"in_use":     p.size - len(p.browsers),
+		"available":  available,
+		"in_use":     p.size - available,
 		"closed":     p.closed,
 		"launch_url": p.launchURL,
 	}
@@ -163,5 +170,5 @@ func (p *BrowserPool) GetStats() map[string]interface{} {
 func (p *BrowserPool) IsAvailable() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return len(p.browsers) > 0 && !p.closed
+	return len(p.available) > 0 && !p.closed
 }

@@ -70,7 +70,22 @@ func (p *Processor) Start(ctx context.Context) {
 
 	p.logger.Infof("Starting email processor with interval: %v", p.config.PollInterval)
 
-	// Run initial fetch
+	// Fetch existing emails on startup if configured
+	if p.emailService.config.FetchExisting {
+		p.logger.Info("Fetching existing emails on startup...")
+		go func() {
+			fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			defer cancel()
+
+			if count, err := p.FetchExistingEmails(fetchCtx); err != nil {
+				p.logger.WithError(err).Error("Failed to fetch existing emails on startup")
+			} else {
+				p.logger.Infof("Successfully fetched %d existing emails on startup", count)
+			}
+		}()
+	}
+
+	// Run initial fetch of new emails
 	go p.processCycle(ctx)
 
 	p.wg.Add(1)
@@ -294,4 +309,53 @@ func (p *Processor) IsRunning() bool {
 // GetStats returns email processing statistics
 func (p *Processor) GetStats(ctx context.Context) (*models.EmailStats, error) {
 	return p.emailRepo.GetStats(ctx)
+}
+
+// FetchExistingEmails fetches existing emails from the inbox based on configuration
+func (p *Processor) FetchExistingEmails(ctx context.Context) (int, error) {
+	p.logger.Info("Fetching existing emails from inbox...")
+
+	emails, err := p.emailService.FetchExistingEmails(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch existing emails: %w", err)
+	}
+
+	processedCount := 0
+
+	for _, email := range emails {
+		// Check if email already exists
+		exists, err := p.emailRepo.Exists(ctx, email.MessageID)
+		if err != nil {
+			p.logger.WithError(err).Warn("Failed to check email existence")
+			continue
+		}
+
+		if exists {
+			p.logger.Debugf("Skipping duplicate email: %s", email.MessageID)
+			continue
+		}
+
+		// Store email
+		storedEmail, err := p.emailRepo.Create(ctx, email)
+		if err != nil {
+			p.logger.WithError(err).Error("Failed to store email")
+			continue
+		}
+
+		p.logger.Infof("Stored existing email: %s from %s", storedEmail.Subject, storedEmail.Sender)
+
+		// Process into article if configured
+		if p.config.ProcessArticles {
+			if err := p.processEmailToArticle(ctx, storedEmail); err != nil {
+				p.logger.WithError(err).Errorf("Failed to process existing email %d into article", storedEmail.ID)
+				// Mark as failed
+				p.emailRepo.MarkAsFailed(ctx, storedEmail.ID, err.Error())
+			} else {
+				processedCount++
+			}
+		}
+	}
+
+	p.logger.Infof("Successfully processed %d existing emails into articles", processedCount)
+	return processedCount, nil
 }

@@ -1,14 +1,16 @@
 # IntelliNieuws
 
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success)]()
-[![Version](https://img.shields.io/badge/Version-2.1-blue)]()
+[![Version](https://img.shields.io/badge/Version-2.2-blue)]()
 [![Performance](https://img.shields.io/badge/Performance-8x%20Faster-brightgreen)]()
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)]()
 [![AI](https://img.shields.io/badge/AI-Powered-purple)]()
 [![Stock](https://img.shields.io/badge/FMP-Integrated-orange)]()
 [![Email](https://img.shields.io/badge/Email-IMAP-blue)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)]()
+[![Security](https://img.shields.io/badge/Security-Hardened-green)]()
 
-Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, entity extraction, real-time stock data, en email integration.
+Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, entity extraction, real-time stock data, email integration, en **production-ready Docker setup**.
 
 ## ✨ Highlights
 
@@ -16,24 +18,58 @@ Een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen 
 - **💰 60% Goedkoper** - Intelligente AI response caching en batch processing
 - **🎯 99.5% Uptime** - Circuit breakers en automatische recovery
 - **🤖 AI-Verrijkt** - Sentiment analyse, entity extraction, trending topics
-- **📊 Real-time Stock Data** - FMP API integration voor US aandelen ✨ NEW
-- **📧 Email Integration** - Outlook IMAP voor noreply@x.ai emails ✨ NEW
+- **📊 Real-time Stock Data** - FMP API integration voor US aandelen
+- **📧 Email Integration** - Outlook IMAP voor noreply@x.ai emails
+- **🐳 Production-Ready Docker** - Complete containerized setup met auto-backup ✨ **v2.2**
+- **🔒 Security Hardened** - Redis auth, credential management, resource limits ✨ **v2.2**
 - **📈 Schaalbaar** - 10,000+ artikelen per dag
 
+## 🆕 Nieuw in v2.2
+
+- ✅ **Production-ready Docker setup** met resource management
+- ✅ **Redis connection pooling** (20 connections) met persistence
+- ✅ **Automatische database backups** (dagelijks, 7 dagen retentie)
+- ✅ **Security verbeteringen** (Redis auth, geen hardcoded credentials)
+- ✅ **Cache invalidation service** voor consistente data
+- ✅ **Development/Production** compose overrides
+- ✅ **Comprehensive monitoring** en health checks
+
 ## 🚀 Quick Start
+
+### Option 1: Docker (Aanbevolen) 🐳
 
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/intellinieuws.git
 cd intellinieuws
 
+# Configure (BELANGRIJK: Wijzig passwords!)
+cp .env.example .env
+# Edit .env - verander ALLE CHANGE_ME waarden!
+
+# Start alle services (PostgreSQL + Redis + App + Backup)
+docker-compose up -d
+
+# Bekijk logs
+docker-compose logs -f app
+
+# ✅ Klaar! API is beschikbaar op http://localhost:8080
+```
+
+### Option 2: Lokale Install
+
+```bash
 # Setup database
 psql -U postgres -c "CREATE DATABASE intellinieuws;"
 psql -U postgres -d intellinieuws -f migrations/001_create_tables.sql
 
 # Configure
 cp .env.example .env
-# Edit .env met je database credentials en OpenAI API key
+# Edit .env met je database credentials en API keys
+
+# Install Redis lokaal
+# Windows: https://github.com/microsoftarchive/redis/releases
+# Mac: brew install redis
 
 # Build en run
 go build -o api.exe ./cmd/api
@@ -42,7 +78,10 @@ go build -o api.exe ./cmd/api
 
 **API is beschikbaar op:** `http://localhost:8080`
 
-📖 **Complete guide:** [docs/getting-started/quick-start.md](docs/getting-started/quick-start.md)
+📖 **Complete guides:**
+- 🐳 [Docker Setup (Production-Ready)](docs/docker-setup.md) - **✨ Nieuw!**
+- 📖 [Quick Start Guide](docs/getting-started/quick-start.md)
+- 🚀 [Deployment Guide](docs/deployment/deployment-guide.md)
 
 ## 🎯 Kern Features
 
@@ -184,9 +223,12 @@ GET  /api/v1/scraper/stats            # Scraper statistics
 ## 🛠️ Tech Stack
 
 - **Backend:** Go 1.22+, Fiber Web Framework
-- **Database:** PostgreSQL 16+ met optimized indexes
-- **Cache:** Redis 7+ (optioneel maar aanbevolen)
+- **Database:** PostgreSQL 15+ met optimized indexes
+- **Cache:** Redis 7+ met connection pooling & persistence ✨
+- **Container:** Docker Compose met resource management ✨
 - **AI:** OpenAI API (GPT-4o-mini)
+- **Stock:** Financial Modeling Prep (FMP) API
+- **Email:** IMAP (Outlook/Gmail support)
 - **Scraping:** RSS (gofeed), HTML (goquery), Browser (Rod)
 
 ## 💻 Frontend Applicatie
@@ -221,6 +263,7 @@ Alle documentatie is beschikbaar in de [`/docs`](docs/) folder:
 ### 🚀 Getting Started
 - **[Quick Start Guide](docs/getting-started/quick-start.md)** - 5-minute setup
 - **[Installation](docs/getting-started/installation.md)** - Detailed installation
+- **[Docker Setup (Production-Ready)](docs/docker-setup.md)** - **✨ Complete Docker guide**
 - **[Windows Setup](docs/getting-started/windows-setup.md)** - Windows-specific guide
 
 ### 💹 Stock Integration (FMP API) ✨ NEW
@@ -298,32 +341,74 @@ go build -o api.exe ./cmd/api
 
 ## 📦 Deployment
 
-Voor production deployment, zie de [Deployment Guide](docs/deployment/deployment-guide.md).
+### 🐳 Docker (Aanbevolen)
 
-### Windows
+**Development:**
+```bash
+docker-compose up -d
+```
+
+**Production:**
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+**Features:**
+- ✅ Automatische database migraties
+- ✅ Redis met persistence
+- ✅ Dagelijkse backups (7 dagen retentie)
+- ✅ Health checks
+- ✅ Resource limits
+- ✅ Log rotation
+
+Zie de [Docker Setup Guide](docs/docker-setup.md) voor complete instructies.
+
+### 🖥️ Manual Deployment
+
+**Windows:**
 ```powershell
 .\scripts\setup.ps1
 .\scripts\create-db.ps1
 .\scripts\start.ps1
 ```
 
-### Linux/Mac
+**Linux/Mac:**
 ```bash
 ./scripts/setup.sh
 psql -U postgres -f migrations/001_create_tables.sql
 go run ./cmd/api/main.go
 ```
 
+📖 **Complete deployment guide:** [docs/deployment/deployment-guide.md](docs/deployment/deployment-guide.md)
+
 ## 💰 Cost Analysis
 
-**Maandelijkse kosten (v2.0):**
+**Maandelijkse kosten (v2.2):**
 - OpenAI API: $270-400 (was $900)
 - Database: $80 (was $200)
 - Compute: $100 (was $150)
 - Redis: $50 (nieuw)
 - **Totaal: $500-630** (was $1,250)
 
+**Docker reduces costs further:**
+- Resource isolation = Better utilization
+- Auto-scaling ready
+- Reduced ops overhead
+
 **Jaarlijkse besparing:** $7,440-9,000
+
+## 🔒 Security & Best Practices
+
+- ✅ **No hardcoded credentials** - All via environment variables
+- ✅ **Redis authentication** - Password protected cache
+- ✅ **Resource limits** - Prevents DoS attacks
+- ✅ **Non-root containers** - Security by default
+- ✅ **Network isolation** - Custom Docker networks
+- ✅ **Regular backups** - Automated daily backups
+- ✅ **Health monitoring** - Comprehensive health checks
+- ✅ **Log rotation** - Prevents disk exhaustion
+
+📖 **Security guide:** [docs/security.md](docs/security.md) (coming soon)
 
 ## 🤝 Contributing
 

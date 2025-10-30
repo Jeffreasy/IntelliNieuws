@@ -1,0 +1,87 @@
+# Multi-Scraper Profiles Configuration
+# Deploy multiple scraper instances with different profiles
+
+version: '3.8'
+
+services:
+  # Profile 1: FAST - Breaking news, high frequency
+  scraper-fast:
+    build: .
+    container_name: nieuws-scraper-fast
+    env_file:
+      - .env.profile.fast
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nieuws-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Profile 2: BALANCED - Normal operations (main instance)
+  scraper-balanced:
+    build: .
+    container_name: nieuws-scraper-balanced
+    env_file:
+      - .env.profile.balanced
+    ports:
+      - "8080:8080"  # Main API port
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nieuws-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Profile 3: DEEP - Quality extraction, low frequency
+  scraper-deep:
+    build: .
+    container_name: nieuws-scraper-deep
+    env_file:
+      - .env.profile.deep
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nieuws-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Profile 4: CONSERVATIVE - Respectful scraping, minimal load
+  scraper-conservative:
+    build: .
+    container_name: nieuws-scraper-conservative
+    env_file:
+      - .env.profile.conservative
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - nieuws-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  nieuws-network:
+    driver: bridge

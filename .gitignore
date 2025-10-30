@@ -51,8 +51,13 @@ output/
 data/
 temp/
 
+# Backups (keep directory, exclude contents)
+backups/*.sql
+backups/*.dump
+backups/*.backup
+
 # Docker
-.dockerignore
+# .dockerignore is now tracked for optimization
 
 # OS
 Thumbs.db

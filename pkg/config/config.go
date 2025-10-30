@@ -41,10 +41,14 @@ type DatabaseConfig struct {
 
 // RedisConfig holds Redis configuration
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Password string
-	DB       int
+	Host                 string
+	Port                 int
+	Password             string
+	DB                   int
+	PoolSize             int
+	MinIdleConns         int
+	DefaultTTLMinutes    int
+	CompressionThreshold int
 }
 
 // NATSConfig holds NATS configuration
@@ -150,6 +154,8 @@ type EmailConfig struct {
 	RetryDelay      time.Duration
 	MarkAsRead      bool
 	DeleteAfterRead bool
+	FetchExisting   bool // Fetch existing emails on first run
+	MaxDaysBack     int  // How many days back to fetch (default: 30)
 }
 
 // Load reads configuration from environment variables and .env file
@@ -186,10 +192,14 @@ func Load() (*Config, error) {
 			SSLMode:  v.GetString("POSTGRES_SSL_MODE"),
 		},
 		Redis: RedisConfig{
-			Host:     v.GetString("REDIS_HOST"),
-			Port:     v.GetInt("REDIS_PORT"),
-			Password: v.GetString("REDIS_PASSWORD"),
-			DB:       v.GetInt("REDIS_DB"),
+			Host:                 v.GetString("REDIS_HOST"),
+			Port:                 v.GetInt("REDIS_PORT"),
+			Password:             v.GetString("REDIS_PASSWORD"),
+			DB:                   v.GetInt("REDIS_DB"),
+			PoolSize:             v.GetInt("REDIS_POOL_SIZE"),
+			MinIdleConns:         v.GetInt("REDIS_MIN_IDLE_CONNS"),
+			DefaultTTLMinutes:    v.GetInt("CACHE_DEFAULT_TTL_MINUTES"),
+			CompressionThreshold: v.GetInt("CACHE_COMPRESSION_THRESHOLD"),
 		},
 		NATS: NATSConfig{
 			URL: v.GetString("NATS_URL"),
@@ -272,6 +282,8 @@ func Load() (*Config, error) {
 			RetryDelay:      time.Duration(v.GetInt("EMAIL_RETRY_DELAY_SECONDS")) * time.Second,
 			MarkAsRead:      v.GetBool("EMAIL_MARK_AS_READ"),
 			DeleteAfterRead: v.GetBool("EMAIL_DELETE_AFTER_READ"),
+			FetchExisting:   v.GetBool("EMAIL_FETCH_EXISTING"),
+			MaxDaysBack:     v.GetInt("EMAIL_MAX_DAYS_BACK"),
 		},
 	}
 
@@ -298,6 +310,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("REDIS_PORT", 6379)
 	v.SetDefault("REDIS_PASSWORD", "")
 	v.SetDefault("REDIS_DB", 0)
+	v.SetDefault("REDIS_POOL_SIZE", 20)
+	v.SetDefault("REDIS_MIN_IDLE_CONNS", 5)
+	v.SetDefault("CACHE_DEFAULT_TTL_MINUTES", 5)
+	v.SetDefault("CACHE_COMPRESSION_THRESHOLD", 1024)
 
 	// NATS defaults
 	v.SetDefault("NATS_URL", "nats://localhost:4222")
@@ -379,6 +395,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("EMAIL_RETRY_DELAY_SECONDS", 5)
 	v.SetDefault("EMAIL_MARK_AS_READ", true)
 	v.SetDefault("EMAIL_DELETE_AFTER_READ", false)
+	v.SetDefault("EMAIL_FETCH_EXISTING", true)
+	v.SetDefault("EMAIL_MAX_DAYS_BACK", 30)
 }
 
 // GetDSN returns PostgreSQL connection string

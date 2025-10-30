@@ -99,11 +99,21 @@ func main() {
 	}
 	log.Info("Successfully connected to database")
 
-	// Initialize Redis client
+	// Initialize Redis client with connection pooling (from config)
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.GetRedisAddr(),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
+		Addr:         cfg.Redis.GetRedisAddr(),
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,     // From config (default: 20)
+		MinIdleConns: cfg.Redis.MinIdleConns, // From config (default: 5)
+		MaxRetries:   3,                      // Maximum number of retries before giving up
+		DialTimeout:  5 * time.Second,        // Dial timeout
+		ReadTimeout:  3 * time.Second,        // Timeout for socket reads
+		WriteTimeout: 3 * time.Second,        // Timeout for socket writes
+		PoolTimeout:  4 * time.Second,        // Amount of time client waits for connection
+		// Connection age configuration
+		ConnMaxLifetime: 30 * time.Minute, // Maximum connection age
+		ConnMaxIdleTime: 5 * time.Minute,  // Close idle connections after this duration
 	})
 	defer redisClient.Close()
 
@@ -112,15 +122,38 @@ func main() {
 		log.WithError(err).Warn("Failed to connect to Redis, continuing without cache")
 		redisClient = nil
 	} else {
-		log.Info("Successfully connected to Redis")
+		log.Infof("Successfully connected to Redis with connection pool (size: %d, min_idle: %d)",
+			cfg.Redis.PoolSize, cfg.Redis.MinIdleConns)
 	}
 
-	// Initialize cache service (5 minute TTL)
+	// Initialize advanced cache service with compression and dynamic TTL
 	var cacheService *cache.Service
+	var advancedCacheService *cache.AdvancedService
 	if redisClient != nil {
-		cacheService = cache.NewService(redisClient, 5*time.Minute)
+		defaultTTL := time.Duration(cfg.Redis.DefaultTTLMinutes) * time.Minute
+		cacheService = cache.NewService(redisClient, defaultTTL)
+		advancedCacheService = cache.NewAdvancedService(redisClient, defaultTTL, cfg.Redis.CompressionThreshold)
+
 		if cacheService.IsAvailable() {
-			log.Info("Cache service initialized with 5min TTL")
+			log.Infof("Cache service initialized: TTL=%dm, compression_threshold=%dB",
+				cfg.Redis.DefaultTTLMinutes, cfg.Redis.CompressionThreshold)
+
+			// Pre-warm cache with frequently accessed data
+			go func() {
+				time.Sleep(5 * time.Second) // Wait for app to fully start
+				warmupCtx, warmupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer warmupCancel()
+
+				warmupData := map[string]interface{}{
+					"system:status": map[string]string{"status": "ready"},
+				}
+
+				if err := advancedCacheService.WarmCache(warmupCtx, warmupData); err != nil {
+					log.WithError(err).Warn("Failed to warm cache")
+				} else {
+					log.Info("Cache warmed successfully")
+				}
+			}()
 		}
 	} else {
 		log.Info("Cache service disabled (Redis not available)")
@@ -269,6 +302,8 @@ func main() {
 			RetryDelay:      cfg.Email.RetryDelay,
 			MarkAsRead:      cfg.Email.MarkAsRead,
 			DeleteAfterRead: cfg.Email.DeleteAfterRead,
+			FetchExisting:   cfg.Email.FetchExisting,
+			MaxDaysBack:     cfg.Email.MaxDaysBack,
 		}
 
 		emailService := email.NewService(emailServiceConfig, log)
@@ -311,6 +346,21 @@ func main() {
 	articleHandler.SetScraperService(scraperService) // Enable content extraction endpoint
 	scraperHandler := handlers.NewScraperHandler(scraperService, articleHandler, log)
 
+	// Initialize cache handler
+	var cacheHandler *handlers.CacheHandler
+	if redisClient != nil {
+		invalidationService := cache.NewInvalidationService(redisClient)
+		cacheHandler = handlers.NewCacheHandler(cacheService, advancedCacheService, invalidationService, log)
+		log.Info("Cache handler initialized with advanced features")
+	}
+
+	// Initialize email handler (if email processor exists)
+	var emailHandler *handlers.EmailHandler
+	if emailProcessor != nil {
+		emailHandler = handlers.NewEmailHandler(emailProcessor, log)
+		log.Info("Email handler initialized")
+	}
+
 	// Initialize middleware
 	var rateLimiter *middleware.RateLimiter
 	if redisClient != nil {
@@ -348,7 +398,7 @@ func main() {
 	})
 
 	// Setup routes with comprehensive health monitoring (PHASE 4)
-	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, stockHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
+	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, stockHandler, emailHandler, cacheHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)

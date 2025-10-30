@@ -124,11 +124,11 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         COUNT(*)::BIGINT as total,
-        COUNT(CASE WHEN ai_sentiment_label = 'positive' THEN 1 END)::BIGINT as positive,
-        COUNT(CASE WHEN ai_sentiment_label = 'neutral' THEN 1 END)::BIGINT as neutral,
-        COUNT(CASE WHEN ai_sentiment_label = 'negative' THEN 1 END)::BIGINT as negative,
+        COUNT(CASE WHEN LOWER(ai_sentiment_label) = 'positive' THEN 1 END)::BIGINT as positive,
+        COUNT(CASE WHEN LOWER(ai_sentiment_label) = 'neutral' THEN 1 END)::BIGINT as neutral,
+        COUNT(CASE WHEN LOWER(ai_sentiment_label) = 'negative' THEN 1 END)::BIGINT as negative,
         AVG(ai_sentiment) as avg_sent,
         (SELECT title FROM articles WHERE ai_sentiment IS NOT NULL 
          AND (source_filter IS NULL OR source = source_filter)

@@ -178,16 +178,20 @@ func (s *Service) ProcessPendingArticles(ctx context.Context, limit int) (*Batch
 
 // GetSentimentStats retrieves sentiment statistics (OPTIMIZED: 75% faster, 3 queries → 1)
 func (s *Service) GetSentimentStats(ctx context.Context, source string, startDate, endDate *time.Time) (*SentimentStats, error) {
+	// DEBUG LOG: Input parameters
+	s.logger.Debugf("GetSentimentStats called with source=%s, startDate=%v, endDate=%v", source, startDate, endDate)
+
 	// Single optimized query using CTE and window functions (OPTIMIZED: 300ms → 80ms)
+	// FIX: Use ILIKE for case-insensitive label matching
 	query := `
 		WITH ranked_articles AS (
 			SELECT
 				title,
 				ai_sentiment,
 				COUNT(*) OVER() as total,
-				COUNT(*) FILTER (WHERE ai_sentiment_label = 'positive') OVER() as positive,
-				COUNT(*) FILTER (WHERE ai_sentiment_label = 'neutral') OVER() as neutral,
-				COUNT(*) FILTER (WHERE ai_sentiment_label = 'negative') OVER() as negative,
+				COUNT(*) FILTER (WHERE LOWER(ai_sentiment_label) = 'positive') OVER() as positive,
+				COUNT(*) FILTER (WHERE LOWER(ai_sentiment_label) = 'neutral') OVER() as neutral,
+				COUNT(*) FILTER (WHERE LOWER(ai_sentiment_label) = 'negative') OVER() as negative,
 				AVG(ai_sentiment) OVER() as avg_sent,
 				ROW_NUMBER() OVER (ORDER BY ai_sentiment DESC) as rn_pos,
 				ROW_NUMBER() OVER (ORDER BY ai_sentiment ASC) as rn_neg
@@ -216,6 +220,10 @@ func (s *Service) GetSentimentStats(ctx context.Context, source string, startDat
 	}
 
 	var stats SentimentStats
+
+	// DEBUG LOG: Query execution
+	s.logger.Debugf("Executing sentiment stats query with params: source=%v, start=%v, end=%v", sourceParam, startDate, endDate)
+
 	err := s.db.QueryRow(ctx, query, sourceParam, startDate, endDate).Scan(
 		&stats.TotalArticles,
 		&stats.PositiveCount,
@@ -227,7 +235,16 @@ func (s *Service) GetSentimentStats(ctx context.Context, source string, startDat
 	)
 
 	if err != nil {
+		s.logger.WithError(err).Error("Failed to execute sentiment stats query")
 		return nil, fmt.Errorf("failed to get sentiment stats: %w", err)
+	}
+
+	// DEBUG LOG: Query results
+	s.logger.Infof("📊 Sentiment Stats Results - Total: %d, Positive: %d, Neutral: %d, Negative: %d, Avg: %.2f",
+		stats.TotalArticles, stats.PositiveCount, stats.NeutralCount, stats.NegativeCount, stats.AverageSentiment)
+
+	if stats.TotalArticles == 0 {
+		s.logger.Warn("⚠️  No articles found with sentiment data - check if AI processing has run")
 	}
 
 	return &stats, nil
@@ -1002,7 +1019,7 @@ func (s *Service) GetRecentArticlesForChat(ctx context.Context, source, category
 	}
 
 	if sentiment != "" {
-		query += fmt.Sprintf(" AND ai_sentiment_label = $%d", argPos)
+		query += fmt.Sprintf(" AND LOWER(ai_sentiment_label) = LOWER($%d)", argPos)
 		args = append(args, sentiment)
 		argPos++
 	}

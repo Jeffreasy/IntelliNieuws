@@ -168,7 +168,135 @@ func (r *ArticleRepository) GetByID(ctx context.Context, id int64) (*models.Arti
 	return &article, nil
 }
 
-// List retrieves articles with filters and sorting
+// ListLight retrieves articles WITHOUT full content (optimized for list views)
+// Use this for API list endpoints to avoid transferring large content fields
+func (r *ArticleRepository) ListLight(ctx context.Context, filter models.ArticleFilter) ([]models.Article, int, error) {
+	// Lightweight query - exclude content field for performance
+	query := `
+		SELECT id, title, summary, url, published, source, keywords, image_url,
+		       author, category, content_hash, created_at, updated_at,
+		       COALESCE(content_extracted, FALSE) as content_extracted,
+		       content_extracted_at
+		FROM articles
+		WHERE 1=1
+	`
+	countQuery := "SELECT COUNT(*) FROM articles WHERE 1=1"
+	args := []interface{}{}
+	argPos := 1
+
+	// Apply filters
+	if filter.Source != "" {
+		query += fmt.Sprintf(" AND source = $%d", argPos)
+		countQuery += fmt.Sprintf(" AND source = $%d", argPos)
+		args = append(args, filter.Source)
+		argPos++
+	}
+
+	if filter.Category != "" {
+		query += fmt.Sprintf(" AND category = $%d", argPos)
+		countQuery += fmt.Sprintf(" AND category = $%d", argPos)
+		args = append(args, filter.Category)
+		argPos++
+	}
+
+	if filter.Keyword != "" {
+		query += fmt.Sprintf(" AND $%d = ANY(keywords)", argPos)
+		countQuery += fmt.Sprintf(" AND $%d = ANY(keywords)", argPos)
+		args = append(args, filter.Keyword)
+		argPos++
+	}
+
+	if filter.StartDate != nil {
+		query += fmt.Sprintf(" AND published >= $%d", argPos)
+		countQuery += fmt.Sprintf(" AND published >= $%d", argPos)
+		args = append(args, filter.StartDate)
+		argPos++
+	}
+
+	if filter.EndDate != nil {
+		query += fmt.Sprintf(" AND published <= $%d", argPos)
+		countQuery += fmt.Sprintf(" AND published <= $%d", argPos)
+		args = append(args, filter.EndDate)
+		argPos++
+	}
+
+	// Get total count
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count articles: %w", err)
+	}
+
+	// Apply ordering
+	orderBy := "published"
+	if filter.SortBy != "" {
+		orderBy = filter.SortBy
+	}
+	orderDir := "DESC"
+	if filter.SortOrder == "asc" {
+		orderDir = "ASC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s", orderBy, orderDir)
+
+	// Apply pagination
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argPos)
+		args = append(args, filter.Limit)
+		argPos++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argPos)
+		args = append(args, filter.Offset)
+		argPos++
+	}
+
+	// Execute query
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list articles: %w", err)
+	}
+	defer rows.Close()
+
+	// Parse results
+	articles := []models.Article{}
+	for rows.Next() {
+		var article models.Article
+		var contentExtracted bool
+		var contentExtractedAt *time.Time
+
+		err := rows.Scan(
+			&article.ID,
+			&article.Title,
+			&article.Summary,
+			&article.URL,
+			&article.Published,
+			&article.Source,
+			&article.Keywords,
+			&article.ImageURL,
+			&article.Author,
+			&article.Category,
+			&article.ContentHash,
+			&article.CreatedAt,
+			&article.UpdatedAt,
+			&contentExtracted,
+			&contentExtractedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan article: %w", err)
+		}
+
+		// Set content fields (no content in lightweight query)
+		article.ContentExtracted = contentExtracted
+		article.ContentExtractedAt = contentExtractedAt
+
+		articles = append(articles, article)
+	}
+
+	return articles, total, nil
+}
+
+// List retrieves articles with filters and sorting (includes full content)
+// For list views, prefer ListLight() for better performance
 func (r *ArticleRepository) List(ctx context.Context, filter models.ArticleFilter) ([]models.Article, int, error) {
 	// Build dynamic query (include content fields)
 	query := `
@@ -289,6 +417,126 @@ func (r *ArticleRepository) List(ctx context.Context, filter models.ArticleFilte
 
 		// Set content fields
 		article.Content = content
+		article.ContentExtracted = contentExtracted
+		article.ContentExtractedAt = contentExtractedAt
+
+		articles = append(articles, article)
+	}
+
+	return articles, total, nil
+}
+
+// SearchLight performs full-text search WITHOUT full content (optimized for list views)
+func (r *ArticleRepository) SearchLight(ctx context.Context, filter models.ArticleFilter) ([]models.Article, int, error) {
+	// Lightweight search query - exclude content field for performance
+	query := `
+		SELECT id, title, summary, url, published, source, keywords, image_url,
+		       author, category, content_hash, created_at, updated_at,
+		       COALESCE(content_extracted, FALSE) as content_extracted,
+		       content_extracted_at
+		FROM articles
+		WHERE (
+			to_tsvector('english', title || ' ' || COALESCE(summary, ''))
+			@@ plainto_tsquery('english', $1)
+			OR title ILIKE $2
+			OR summary ILIKE $2
+		)
+	`
+	countQuery := `
+		SELECT COUNT(*)
+		FROM articles
+		WHERE (
+			to_tsvector('english', title || ' ' || COALESCE(summary, ''))
+			@@ plainto_tsquery('english', $1)
+			OR title ILIKE $2
+			OR summary ILIKE $2
+		)
+	`
+
+	searchPattern := "%" + filter.Search + "%"
+	args := []interface{}{filter.Search, searchPattern}
+	argPos := 3
+
+	// Apply additional filters
+	if filter.Source != "" {
+		query += fmt.Sprintf(" AND source = $%d", argPos)
+		countQuery += fmt.Sprintf(" AND source = $%d", argPos)
+		args = append(args, filter.Source)
+		argPos++
+	}
+
+	if filter.Category != "" {
+		query += fmt.Sprintf(" AND category = $%d", argPos)
+		countQuery += fmt.Sprintf(" AND category = $%d", argPos)
+		args = append(args, filter.Category)
+		argPos++
+	}
+
+	// Get total count
+	var total int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count search results: %w", err)
+	}
+
+	// Apply ordering
+	orderBy := "published"
+	if filter.SortBy != "" {
+		orderBy = filter.SortBy
+	}
+	orderDir := "DESC"
+	if filter.SortOrder == "asc" {
+		orderDir = "ASC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s", orderBy, orderDir)
+
+	// Apply pagination
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argPos)
+		args = append(args, filter.Limit)
+		argPos++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argPos)
+		args = append(args, filter.Offset)
+	}
+
+	// Execute query
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search articles: %w", err)
+	}
+	defer rows.Close()
+
+	// Parse results
+	articles := []models.Article{}
+	for rows.Next() {
+		var article models.Article
+		var contentExtracted bool
+		var contentExtractedAt *time.Time
+
+		err := rows.Scan(
+			&article.ID,
+			&article.Title,
+			&article.Summary,
+			&article.URL,
+			&article.Published,
+			&article.Source,
+			&article.Keywords,
+			&article.ImageURL,
+			&article.Author,
+			&article.Category,
+			&article.ContentHash,
+			&article.CreatedAt,
+			&article.UpdatedAt,
+			&contentExtracted,
+			&contentExtractedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan article: %w", err)
+		}
+
+		// Set content fields (no content in lightweight query)
 		article.ContentExtracted = contentExtracted
 		article.ContentExtractedAt = contentExtractedAt
 

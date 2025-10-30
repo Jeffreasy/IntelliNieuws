@@ -1,6 +1,6 @@
 # Makefile for Nieuws Scraper
 
-.PHONY: help build run test clean fmt lint tidy dev-setup
+.PHONY: help build run test clean fmt lint tidy dev-setup docker-build docker-run docker-stop docker-logs docker-clean
 
 # Variables
 APP_NAME=nieuws-scraper
@@ -10,15 +10,22 @@ GO_FILES=$(shell find . -name '*.go' -not -path "./vendor/*")
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  make build       - Build the API binary"
-	@echo "  make run         - Run the API locally"
-	@echo "  make test        - Run tests"
-	@echo "  make test-cover  - Run tests with coverage"
-	@echo "  make fmt         - Format Go code"
-	@echo "  make lint        - Run linters"
-	@echo "  make clean       - Clean build artifacts"
-	@echo "  make tidy        - Tidy go modules"
-	@echo "  make dev-setup   - Setup development environment"
+	@echo "  make build         - Build the API binary"
+	@echo "  make run           - Run the API locally"
+	@echo "  make test          - Run tests"
+	@echo "  make test-cover    - Run tests with coverage"
+	@echo "  make fmt           - Format Go code"
+	@echo "  make lint          - Run linters"
+	@echo "  make clean         - Clean build artifacts"
+	@echo "  make tidy          - Tidy go modules"
+	@echo "  make dev-setup     - Setup development environment"
+	@echo ""
+	@echo "Docker targets:"
+	@echo "  make docker-build  - Build Docker images"
+	@echo "  make docker-run    - Start all services with Docker Compose"
+	@echo "  make docker-stop   - Stop all Docker services"
+	@echo "  make docker-logs   - Show Docker logs"
+	@echo "  make docker-clean  - Remove Docker containers and volumes"
 
 # Build the API binary
 build:
@@ -83,4 +90,38 @@ dev-setup:
 	@echo "  1. PostgreSQL: https://www.postgresql.org/download/windows/"
 	@echo "  2. Redis: https://github.com/microsoftarchive/redis/releases"
 	@echo ""
+	@echo "Or use Docker: make docker-run"
+	@echo ""
 	@echo "Then run: make run"
+
+# Docker targets
+docker-build:
+	@echo "Building Docker images..."
+	@docker-compose build
+
+docker-run:
+	@echo "Starting all services with Docker Compose..."
+	@if not exist .env copy .env.example .env
+	@echo "Starting PostgreSQL, Redis, and the application..."
+	@docker-compose up -d
+	@echo ""
+	@echo "Services started!"
+	@echo "  - API: http://localhost:8080"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo "  - Redis: localhost:6379"
+	@echo ""
+	@echo "To view logs: make docker-logs"
+	@echo "To stop: make docker-stop"
+
+docker-stop:
+	@echo "Stopping all Docker services..."
+	@docker-compose down
+
+docker-logs:
+	@echo "Showing Docker logs..."
+	@docker-compose logs -f
+
+docker-clean:
+	@echo "Removing Docker containers and volumes..."
+	@docker-compose down -v --remove-orphans
+	@echo "Cleaned up Docker resources"
