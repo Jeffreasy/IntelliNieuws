@@ -252,7 +252,77 @@ Returns de huidige scheduler status.
 
 ---
 
-### 6. Reset to Defaults
+### 6. Restart Server
+
+**Endpoint:** `POST /api/v1/config/restart`
+**Auth:** Required (API Key)
+
+Initieert een graceful server restart.
+
+**Query Parameters:**
+- `delay` (optional): Delay in seconds before restart (default: 3, max: 60)
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/config/restart?delay=5" \
+  -H "X-API-Key: your-api-key"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "Server restart initiated",
+    "delay_seconds": 5,
+    "estimated_downtime": "30-45 seconds",
+    "steps": [
+      "Graceful shutdown in progress",
+      "Stopping schedulers and processors",
+      "Closing database connections",
+      "Restarting container",
+      "Server will be back online shortly"
+    ]
+  },
+  "request_id": "abc123"
+}
+```
+
+**Process:**
+1. ✅ Response sent immediately
+2. ⏳ Wait for delay (default 3s)
+3. 🛑 Graceful shutdown triggered
+4. 🔄 Docker restarts container automatically
+5. ✅ Server back online (~30-45s)
+
+---
+
+### 7. Get Restart Status
+
+**Endpoint:** `GET /api/v1/config/restart/status`
+**Auth:** None (public)
+
+Checks if server is operational (health check for restart completion).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "status": "running",
+    "ready": true,
+    "message": "Server is operational"
+  },
+  "request_id": "abc123"
+}
+```
+
+**Use Case:** Poll this endpoint to detect when server is back online after restart
+
+---
+
+### 8. Reset to Defaults
 
 **Endpoint:** `POST /api/v1/config/reset`  
 **Auth:** Required (API Key)

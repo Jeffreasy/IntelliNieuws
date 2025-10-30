@@ -110,6 +110,7 @@ func SetupRoutes(
 		config.Get("/profiles", configHandler.GetProfiles)                // Get all profiles
 		config.Get("/current", configHandler.GetCurrentConfig)            // Get current config
 		config.Get("/scheduler/status", configHandler.GetSchedulerStatus) // Scheduler status
+		config.Get("/restart/status", configHandler.GetRestartStatus)     // Restart status (health check)
 	}
 
 	// Public routes (optional auth)
@@ -224,6 +225,7 @@ func SetupRoutes(
 		configProtected.Post("/profile/:name", configHandler.SwitchProfile) // Switch profile
 		configProtected.Patch("/setting", configHandler.UpdateSetting)      // Update setting
 		configProtected.Post("/reset", configHandler.ResetToDefaults)       // Reset to defaults
+		configProtected.Post("/restart", configHandler.RestartServer)       // Restart server (graceful)
 	}
 
 	// 404 handler

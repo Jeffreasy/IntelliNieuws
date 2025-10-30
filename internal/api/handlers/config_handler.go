@@ -427,3 +427,66 @@ func (h *ConfigHandler) ResetToDefaults(c *fiber.Ctx) error {
 func calculateNextRun(intervalMinutes int) time.Time {
 	return time.Now().Add(time.Duration(intervalMinutes) * time.Minute)
 }
+
+// RestartServer initiates a graceful server restart
+// POST /api/v1/config/restart
+func (h *ConfigHandler) RestartServer(c *fiber.Ctx) error {
+	requestID := c.Locals("requestid").(string)
+
+	// Parse optional delay parameter (seconds)
+	delay := c.QueryInt("delay", 3) // Default 3 seconds
+	if delay < 0 || delay > 60 {
+		delay = 3
+	}
+
+	h.logger.Warnf("Server restart requested via API (delay: %ds, request_id: %s)", delay, requestID)
+
+	// Send immediate response before starting shutdown
+	response := fiber.Map{
+		"success":            true,
+		"message":            "Server restart initiated",
+		"delay_seconds":      delay,
+		"estimated_downtime": "30-45 seconds",
+		"steps": []string{
+			"Graceful shutdown in progress",
+			"Stopping schedulers and processors",
+			"Closing database connections",
+			"Restarting container",
+			"Server will be back online shortly",
+		},
+	}
+
+	// Send response first
+	if err := c.JSON(models.NewSuccessResponse(response, requestID)); err != nil {
+		h.logger.WithError(err).Error("Failed to send restart response")
+	}
+
+	// Trigger graceful shutdown after delay (in goroutine)
+	go func() {
+		time.Sleep(time.Duration(delay) * time.Second)
+		h.logger.Warn("Initiating graceful shutdown for restart...")
+
+		// Trigger Fiber app shutdown (will be caught by signal handler in main.go)
+		if err := c.App().Shutdown(); err != nil {
+			h.logger.WithError(err).Error("Failed to shutdown server")
+		}
+	}()
+
+	return nil
+}
+
+// GetRestartStatus checks if server is ready after restart
+// GET /api/v1/config/restart/status
+func (h *ConfigHandler) GetRestartStatus(c *fiber.Ctx) error {
+	requestID := c.Locals("requestid").(string)
+
+	// If this endpoint responds, server is running
+	response := fiber.Map{
+		"status":      "running",
+		"ready":       true,
+		"message":     "Server is operational",
+		"uptime_info": "Check /health/metrics for detailed uptime",
+	}
+
+	return c.JSON(models.NewSuccessResponse(response, requestID))
+}
