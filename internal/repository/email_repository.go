@@ -23,10 +23,10 @@ func NewEmailRepository(db *pgxpool.Pool) *EmailRepository {
 // Create creates a new email record
 func (r *EmailRepository) Create(ctx context.Context, email *models.EmailCreate) (*models.Email, error) {
 	query := `
-		INSERT INTO emails (message_id, sender, subject, body_text, body_html, received_date, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, message_id, sender, subject, body_text, body_html, received_date, 
-		          processed, processed_at, article_id, error, retry_count, metadata, created_at, updated_at
+		INSERT INTO emails (message_id, sender, subject, body_text, body_html, received_date, metadata, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+		RETURNING id, message_id, sender, subject, body_text, body_html, received_date,
+		          status, processed_at, article_id, article_created, error, retry_count, metadata, created_at, updated_at
 	`
 
 	var result models.Email
@@ -47,9 +47,10 @@ func (r *EmailRepository) Create(ctx context.Context, email *models.EmailCreate)
 		&result.BodyText,
 		&result.BodyHTML,
 		&result.ReceivedDate,
-		&result.Processed,
+		&result.Status,
 		&result.ProcessedAt,
 		&result.ArticleID,
+		&result.ArticleCreated,
 		&result.Error,
 		&result.RetryCount,
 		&result.Metadata,
@@ -68,7 +69,7 @@ func (r *EmailRepository) Create(ctx context.Context, email *models.EmailCreate)
 func (r *EmailRepository) GetByID(ctx context.Context, id int64) (*models.Email, error) {
 	query := `
 		SELECT id, message_id, sender, subject, body_text, body_html, received_date,
-		       processed, processed_at, article_id, error, retry_count, metadata, created_at, updated_at
+		       status, processed_at, article_id, article_created, error, retry_count, metadata, created_at, updated_at
 		FROM emails
 		WHERE id = $1
 	`
@@ -82,9 +83,10 @@ func (r *EmailRepository) GetByID(ctx context.Context, id int64) (*models.Email,
 		&email.BodyText,
 		&email.BodyHTML,
 		&email.ReceivedDate,
-		&email.Processed,
+		&email.Status,
 		&email.ProcessedAt,
 		&email.ArticleID,
+		&email.ArticleCreated,
 		&email.Error,
 		&email.RetryCount,
 		&email.Metadata,
@@ -103,7 +105,7 @@ func (r *EmailRepository) GetByID(ctx context.Context, id int64) (*models.Email,
 func (r *EmailRepository) GetByMessageID(ctx context.Context, messageID string) (*models.Email, error) {
 	query := `
 		SELECT id, message_id, sender, subject, body_text, body_html, received_date,
-		       processed, processed_at, article_id, error, retry_count, metadata, created_at, updated_at
+		       status, processed_at, article_id, article_created, error, retry_count, metadata, created_at, updated_at
 		FROM emails
 		WHERE message_id = $1
 	`
@@ -117,9 +119,10 @@ func (r *EmailRepository) GetByMessageID(ctx context.Context, messageID string) 
 		&email.BodyText,
 		&email.BodyHTML,
 		&email.ReceivedDate,
-		&email.Processed,
+		&email.Status,
 		&email.ProcessedAt,
 		&email.ArticleID,
+		&email.ArticleCreated,
 		&email.Error,
 		&email.RetryCount,
 		&email.Metadata,
@@ -139,7 +142,7 @@ func (r *EmailRepository) List(ctx context.Context, filter *models.EmailFilter) 
 	// Build query
 	query := `
 		SELECT id, message_id, sender, subject, body_text, body_html, received_date,
-		       processed, processed_at, article_id, error, retry_count, metadata, created_at, updated_at
+		       status, processed_at, article_id, article_created, error, retry_count, metadata, created_at, updated_at
 		FROM emails
 		WHERE 1=1
 	`
@@ -157,9 +160,16 @@ func (r *EmailRepository) List(ctx context.Context, filter *models.EmailFilter) 
 	}
 
 	if filter.Processed != nil {
-		query += fmt.Sprintf(" AND processed = $%d", argIndex)
-		countQuery += fmt.Sprintf(" AND processed = $%d", argIndex)
-		args = append(args, *filter.Processed)
+		if *filter.Processed {
+			query += fmt.Sprintf(" AND status = $%d", argIndex)
+			countQuery += fmt.Sprintf(" AND status = $%d", argIndex)
+			args = append(args, "processed")
+		} else {
+			query += fmt.Sprintf(" AND status IN ($%d, $%d)", argIndex, argIndex+1)
+			countQuery += fmt.Sprintf(" AND status IN ($%d, $%d)", argIndex, argIndex+1)
+			args = append(args, "pending", "failed")
+			argIndex++
+		}
 		argIndex++
 	}
 
@@ -230,9 +240,10 @@ func (r *EmailRepository) List(ctx context.Context, filter *models.EmailFilter) 
 			&email.BodyText,
 			&email.BodyHTML,
 			&email.ReceivedDate,
-			&email.Processed,
+			&email.Status,
 			&email.ProcessedAt,
 			&email.ArticleID,
+			&email.ArticleCreated,
 			&email.Error,
 			&email.RetryCount,
 			&email.Metadata,
@@ -252,7 +263,7 @@ func (r *EmailRepository) List(ctx context.Context, filter *models.EmailFilter) 
 func (r *EmailRepository) MarkAsProcessed(ctx context.Context, emailID int64, articleID *int64) error {
 	query := `
 		UPDATE emails
-		SET processed = true, processed_at = $1, article_id = $2, error = NULL
+		SET status = 'processed', processed_at = $1, article_id = $2, article_created = TRUE, error = NULL
 		WHERE id = $3
 	`
 
@@ -284,9 +295,9 @@ func (r *EmailRepository) MarkAsFailed(ctx context.Context, emailID int64, error
 func (r *EmailRepository) GetUnprocessed(ctx context.Context, maxRetries int, limit int) ([]models.Email, error) {
 	query := `
 		SELECT id, message_id, sender, subject, body_text, body_html, received_date,
-		       processed, processed_at, article_id, error, retry_count, metadata, created_at, updated_at
+		       status, processed_at, article_id, article_created, error, retry_count, metadata, created_at, updated_at
 		FROM emails
-		WHERE processed = false AND retry_count < $1
+		WHERE status IN ('pending', 'failed') AND retry_count < $1
 		ORDER BY received_date DESC
 		LIMIT $2
 	`
@@ -308,9 +319,10 @@ func (r *EmailRepository) GetUnprocessed(ctx context.Context, maxRetries int, li
 			&email.BodyText,
 			&email.BodyHTML,
 			&email.ReceivedDate,
-			&email.Processed,
+			&email.Status,
 			&email.ProcessedAt,
 			&email.ArticleID,
+			&email.ArticleCreated,
 			&email.Error,
 			&email.RetryCount,
 			&email.Metadata,
@@ -329,12 +341,12 @@ func (r *EmailRepository) GetUnprocessed(ctx context.Context, maxRetries int, li
 // GetStats retrieves email processing statistics
 func (r *EmailRepository) GetStats(ctx context.Context) (*models.EmailStats, error) {
 	query := `
-		SELECT 
+		SELECT
 			COUNT(*) as total_emails,
-			COUNT(*) FILTER (WHERE processed = true) as processed_emails,
-			COUNT(*) FILTER (WHERE processed = false) as pending_emails,
-			COUNT(*) FILTER (WHERE error IS NOT NULL AND error != '') as failed_emails,
-			COUNT(*) FILTER (WHERE article_id IS NOT NULL) as articles_created
+			COUNT(*) FILTER (WHERE status = 'processed') as processed_emails,
+			COUNT(*) FILTER (WHERE status IN ('pending', 'processing')) as pending_emails,
+			COUNT(*) FILTER (WHERE status = 'failed') as failed_emails,
+			COUNT(*) FILTER (WHERE article_created = TRUE) as articles_created
 		FROM emails
 	`
 
@@ -377,4 +389,121 @@ func (r *EmailRepository) Exists(ctx context.Context, messageID string) (bool, e
 	}
 
 	return exists, nil
+}
+
+// UpdateStatus updates the status of an email
+func (r *EmailRepository) UpdateStatus(ctx context.Context, emailID int64, status string) error {
+	query := `UPDATE emails SET status = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.Exec(ctx, query, status, emailID)
+	if err != nil {
+		return fmt.Errorf("failed to update email status: %w", err)
+	}
+	return nil
+}
+
+// GetEmailsForRetry uses database helper function to get emails eligible for retry
+func (r *EmailRepository) GetEmailsForRetry(ctx context.Context, hoursBack int, limit int) ([]models.Email, error) {
+	query := `SELECT * FROM get_emails_for_retry($1, $2)`
+
+	rows, err := r.db.Query(ctx, query, hoursBack, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get emails for retry: %w", err)
+	}
+	defer rows.Close()
+
+	emails := make([]models.Email, 0)
+	for rows.Next() {
+		var email models.Email
+		err := rows.Scan(
+			&email.ID,
+			&email.MessageID,
+			&email.Sender,
+			&email.Subject,
+			&email.BodyText,
+			&email.BodyHTML,
+			&email.ReceivedDate,
+			&email.Status,
+			&email.ProcessedAt,
+			&email.ArticleID,
+			&email.ArticleCreated,
+			&email.Error,
+			&email.RetryCount,
+			&email.Metadata,
+			&email.CreatedAt,
+			&email.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan email: %w", err)
+		}
+		emails = append(emails, email)
+	}
+
+	return emails, nil
+}
+
+// MarkEmailProcessedDB uses database helper function to mark email as processed
+func (r *EmailRepository) MarkEmailProcessedDB(ctx context.Context, emailID int64, articleID int64) error {
+	query := `SELECT mark_email_processed($1, $2)`
+	_, err := r.db.Exec(ctx, query, emailID, articleID)
+	if err != nil {
+		return fmt.Errorf("failed to mark email as processed via DB function: %w", err)
+	}
+	return nil
+}
+
+// MarkEmailFailedDB uses database helper function to mark email as failed
+func (r *EmailRepository) MarkEmailFailedDB(ctx context.Context, emailID int64, errorMsg, errorCode string) error {
+	query := `SELECT mark_email_failed($1, $2, $3)`
+	_, err := r.db.Exec(ctx, query, emailID, errorMsg, errorCode)
+	if err != nil {
+		return fmt.Errorf("failed to mark email as failed via DB function: %w", err)
+	}
+	return nil
+}
+
+// CleanupOldEmails uses database helper function to cleanup old emails
+func (r *EmailRepository) CleanupOldEmails(ctx context.Context, daysOld int, dryRun bool) (int, error) {
+	query := `SELECT * FROM cleanup_old_emails($1, $2)`
+
+	rows, err := r.db.Query(ctx, query, daysOld, dryRun)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup old emails: %w", err)
+	}
+	defer rows.Close()
+
+	totalDeleted := 0
+	for rows.Next() {
+		var emailID int64
+		var deletedAt interface{}
+		if err := rows.Scan(&emailID, &deletedAt); err != nil {
+			continue
+		}
+		totalDeleted++
+	}
+
+	return totalDeleted, nil
+}
+
+// MarkAsFailedWithCode marks an email as failed with error message and error code
+func (r *EmailRepository) MarkAsFailedWithCode(ctx context.Context, emailID int64, errorMsg, errorCode string) error {
+	query := `
+		UPDATE emails
+		SET status = 'failed', error = $1, error_code = $2, retry_count = retry_count + 1, updated_at = NOW()
+		WHERE id = $3
+	`
+	_, err := r.db.Exec(ctx, query, errorMsg, errorCode, emailID)
+	if err != nil {
+		return fmt.Errorf("failed to mark email as failed with code: %w", err)
+	}
+	return nil
+}
+
+// UpdateLastRetryAt updates the last_retry_at timestamp
+func (r *EmailRepository) UpdateLastRetryAt(ctx context.Context, emailID int64) error {
+	query := `UPDATE emails SET last_retry_at = NOW() WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, emailID)
+	if err != nil {
+		return fmt.Errorf("failed to update last_retry_at: %w", err)
+	}
+	return nil
 }

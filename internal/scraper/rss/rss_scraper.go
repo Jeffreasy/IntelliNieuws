@@ -3,6 +3,7 @@ package rss
 import (
 	"context"
 	"fmt"
+	"html"
 	"strings"
 	"time"
 
@@ -145,6 +146,9 @@ func (s *Scraper) convertFeedItem(item *gofeed.Item, source string) (*models.Art
 
 // cleanHTML removes HTML tags from text
 func cleanHTML(text string) string {
+	// Decode HTML entities first (before removing tags)
+	text = html.UnescapeString(text)
+
 	// Simple HTML tag removal - for production use a proper HTML parser
 	text = strings.ReplaceAll(text, "<br>", "\n")
 	text = strings.ReplaceAll(text, "<br/>", "\n")
@@ -174,6 +178,9 @@ func cleanHTML(text string) string {
 
 // cleanText cleans and normalizes text
 func cleanText(text string) string {
+	// Decode HTML entities first (e.g., &amp;, &quot;, &#8220;, etc.)
+	text = html.UnescapeString(text)
+
 	// Trim whitespace
 	text = strings.TrimSpace(text)
 

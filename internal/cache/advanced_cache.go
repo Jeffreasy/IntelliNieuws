@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -17,8 +16,6 @@ import (
 type AdvancedService struct {
 	*Service
 	compressionThreshold int // Compress values larger than this (bytes)
-	pipeline             redis.Pipeliner
-	pipelineMu           sync.Mutex
 }
 
 // NewAdvancedService creates an advanced cache service with compression and pipelining
@@ -317,14 +314,14 @@ type CacheStatistics struct {
 }
 
 // calculateHitRate parses hit rate from Redis INFO stats
-func (s *AdvancedService) calculateHitRate(info string) float64 {
+func (s *AdvancedService) calculateHitRate(_ string) float64 {
 	// Parse keyspace_hits and keyspace_misses from info
 	// This is a simplified version
 	return 0.0 // Placeholder - would parse from info string
 }
 
 // parseMemoryUsage parses memory usage from Redis INFO memory
-func (s *AdvancedService) parseMemoryUsage(info string) float64 {
+func (s *AdvancedService) parseMemoryUsage(_ string) float64 {
 	// Parse used_memory from info
 	// This is a simplified version
 	return 0.0 // Placeholder - would parse from info string

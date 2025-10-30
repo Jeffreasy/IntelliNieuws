@@ -166,15 +166,15 @@ func main() {
 	// Initialize services
 	scraperService := scraper.NewService(&cfg.Scraper, articleRepo, jobRepo, log)
 
-	// Initialize scheduler if enabled
+	// Initialize scheduler if enabled (with database for analytics refresh)
 	var scraperScheduler *scheduler.Scheduler
 	if cfg.Scraper.ScheduleEnabled {
 		interval := cfg.Scraper.GetScheduleInterval()
-		scraperScheduler = scheduler.NewScheduler(scraperService, interval, log)
+		scraperScheduler = scheduler.NewScheduler(scraperService, dbPool, interval, log)
 
 		// Start scheduler in background
 		go scraperScheduler.Start(context.Background())
-		log.Infof("Scheduled scraping enabled with interval: %v", interval)
+		log.Infof("Scheduled scraping enabled with interval: %v (analytics refresh: every 15min)", interval)
 	} else {
 		log.Info("Scheduled scraping disabled")
 	}

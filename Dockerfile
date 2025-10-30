@@ -28,14 +28,25 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage - minimal distroless-like image
 FROM alpine:latest
 
-# Install runtime dependencies and curl for healthcheck
+# Install runtime dependencies, curl for healthcheck, and Chrome dependencies
 RUN apk --no-cache add \
     ca-certificates \
     tzdata \
-    curl
+    curl \
+    chromium \
+    chromium-chromedriver \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    udev
 
-# Create non-root user
+# Create non-root user with home directory
 RUN adduser -D -s /bin/sh appuser
+
+# Create cache directories for browser pool with proper permissions
+RUN mkdir -p /home/appuser/.cache/rod && \
+    chown -R appuser:appuser /home/appuser/.cache
 
 WORKDIR /root/
 

@@ -599,7 +599,7 @@ IMPORTANT:
 	// Try to parse as complete enrichment
 	var fullResponse struct {
 		Sentiment  *SentimentAnalysis `json:"sentiment,omitempty"`
-		Entities   *EntityExtraction  `json:"entities,omitempty"`
+		Entities   interface{}        `json:"entities,omitempty"`   // Can be EntityExtraction or object format
 		Categories interface{}        `json:"categories,omitempty"` // Can be map or array
 		Keywords   interface{}        `json:"keywords,omitempty"`   // Can be map or array
 		Summary    string             `json:"summary,omitempty"`
@@ -618,7 +618,7 @@ IMPORTANT:
 	}
 
 	enrichment.Sentiment = fullResponse.Sentiment
-	enrichment.Entities = fullResponse.Entities
+	enrichment.Entities = parseEntities(fullResponse.Entities, c.logger)
 	enrichment.Summary = fullResponse.Summary
 
 	// Handle keywords - can be either object or array
@@ -784,7 +784,7 @@ CRITICAL RULES:
 	// Try to parse as array of enrichments
 	var batchResponse []struct {
 		Sentiment  *SentimentAnalysis `json:"sentiment,omitempty"`
-		Entities   *EntityExtraction  `json:"entities,omitempty"`
+		Entities   interface{}        `json:"entities,omitempty"` // Can be EntityExtraction or object format
 		Categories interface{}        `json:"categories,omitempty"`
 		Keywords   interface{}        `json:"keywords,omitempty"`
 		Summary    string             `json:"summary,omitempty"`
@@ -822,7 +822,7 @@ CRITICAL RULES:
 		if i < len(batchResponse) {
 			resp := batchResponse[i]
 			enrichment.Sentiment = resp.Sentiment
-			enrichment.Entities = resp.Entities
+			enrichment.Entities = parseEntities(resp.Entities, c.logger)
 			enrichment.Summary = resp.Summary
 
 			// Handle keywords
@@ -968,4 +968,115 @@ func (c *OpenAIClient) ChatWithFunctions(ctx context.Context, messages []map[str
 	}
 
 	return message.Content, nil, nil
+}
+
+// parseEntities robustly parses entity data from OpenAI response
+// Handles both string arrays (expected format) and object arrays (OpenAI sometimes returns this)
+func parseEntities(entitiesData interface{}, log *logger.Logger) *EntityExtraction {
+	if entitiesData == nil {
+		return nil
+	}
+
+	// Try to marshal back to JSON and unmarshal to EntityExtraction
+	// This handles the normal case where OpenAI returns the expected format
+	entitiesJSON, err := json.Marshal(entitiesData)
+	if err != nil {
+		log.WithError(err).Warn("Failed to marshal entities data")
+		return nil
+	}
+
+	var entities EntityExtraction
+	err = json.Unmarshal(entitiesJSON, &entities)
+	if err == nil {
+		// Success! OpenAI returned the expected format
+		return &entities
+	}
+
+	// Failed to unmarshal - OpenAI might have returned objects instead of strings
+	log.Warnf("Standard entity parsing failed: %v, trying object format", err)
+
+	// Try to parse as object format where each entity might be an object
+	var entitiesMap map[string]interface{}
+	if err := json.Unmarshal(entitiesJSON, &entitiesMap); err != nil {
+		log.WithError(err).Warn("Failed to parse entities as map")
+		return nil
+	}
+
+	entities = EntityExtraction{}
+
+	// Parse persons (can be array of strings or array of objects)
+	if personsData, ok := entitiesMap["persons"]; ok && personsData != nil {
+		entities.Persons = extractStringArray(personsData, "name", log)
+	}
+
+	// Parse organizations
+	if orgsData, ok := entitiesMap["organizations"]; ok && orgsData != nil {
+		entities.Organizations = extractStringArray(orgsData, "name", log)
+	}
+
+	// Parse locations
+	if locsData, ok := entitiesMap["locations"]; ok && locsData != nil {
+		entities.Locations = extractStringArray(locsData, "name", log)
+	}
+
+	// Parse stock tickers (can be array of objects)
+	if tickersData, ok := entitiesMap["stock_tickers"]; ok && tickersData != nil {
+		if tickersArray, ok := tickersData.([]interface{}); ok {
+			entities.StockTickers = make([]StockTicker, 0, len(tickersArray))
+			for _, item := range tickersArray {
+				if tickerObj, ok := item.(map[string]interface{}); ok {
+					ticker := StockTicker{}
+					if symbol, ok := tickerObj["symbol"].(string); ok {
+						ticker.Symbol = symbol
+					}
+					if name, ok := tickerObj["name"].(string); ok {
+						ticker.Name = name
+					}
+					if exchange, ok := tickerObj["exchange"].(string); ok {
+						ticker.Exchange = exchange
+					}
+					if ticker.Symbol != "" {
+						entities.StockTickers = append(entities.StockTickers, ticker)
+					}
+				}
+			}
+		}
+	}
+
+	log.Debugf("Parsed entities from object format: %d persons, %d orgs, %d locations, %d tickers",
+		len(entities.Persons), len(entities.Organizations), len(entities.Locations), len(entities.StockTickers))
+
+	return &entities
+}
+
+// extractStringArray extracts strings from either a string array or an object array
+// For object arrays, it looks for the specified field (e.g., "name")
+func extractStringArray(data interface{}, fieldName string, log *logger.Logger) []string {
+	var result []string
+
+	switch v := data.(type) {
+	case []interface{}:
+		for _, item := range v {
+			switch itemVal := item.(type) {
+			case string:
+				// It's a string array (expected format)
+				result = append(result, itemVal)
+			case map[string]interface{}:
+				// It's an object array - extract the field
+				if field, ok := itemVal[fieldName].(string); ok && field != "" {
+					result = append(result, field)
+				} else if name, ok := itemVal["value"].(string); ok && name != "" {
+					// Fallback: try "value" field
+					result = append(result, name)
+				}
+			}
+		}
+	case []string:
+		// Already a string array
+		result = v
+	default:
+		log.Warnf("Unexpected entity array type: %T", data)
+	}
+
+	return result
 }

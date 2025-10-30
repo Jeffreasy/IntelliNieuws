@@ -836,11 +836,6 @@ func (s *Service) EnrichArticlesWithStockData(ctx context.Context, articleIDs []
 	defer rows.Close()
 
 	// Collect all unique stock symbols and article mappings
-	type articleTickers struct {
-		articleID int64
-		symbols   []string
-	}
-
 	articleTickersMap := make(map[int64][]string)
 	allSymbols := make(map[string]bool)
 

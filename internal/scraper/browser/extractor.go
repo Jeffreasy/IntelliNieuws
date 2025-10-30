@@ -3,6 +3,7 @@ package browser
 import (
 	"context"
 	"fmt"
+	"html"
 	"math/rand"
 	"strings"
 	"time"
@@ -312,6 +313,9 @@ func getSiteSelectors(source string) []string {
 
 // cleanText removes extra whitespace and normalizes text
 func cleanText(text string) string {
+	// Decode HTML entities first (e.g., &amp;, &quot;, &#8220;, etc.)
+	text = html.UnescapeString(text)
+
 	// Remove multiple spaces
 	text = strings.Join(strings.Fields(text), " ")
 

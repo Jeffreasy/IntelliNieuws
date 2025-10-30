@@ -37,6 +37,9 @@ func SetupRoutes(
 	scraperService *scraper.Service,
 	aiProcessor *ai.Processor,
 ) {
+	// Initialize analytics handler
+	analyticsHandler := handlers.NewAnalyticsHandler(db, log)
+
 	// Global middleware
 	app.Use(recover.New())
 	app.Use(requestid.New())
@@ -85,6 +88,18 @@ func SetupRoutes(
 	if rateLimiter != nil {
 		api.Use(rateLimiter.Handler())
 	}
+
+	// Analytics routes (public, no auth) - Must be before auth middleware
+	analytics := api.Group("/analytics")
+	analytics.Get("/trending", analyticsHandler.GetTrendingKeywords)
+	analytics.Get("/sentiment-trends", analyticsHandler.GetSentimentTrends)
+	analytics.Get("/hot-entities", analyticsHandler.GetHotEntities)
+	analytics.Get("/entity-sentiment", analyticsHandler.GetEntitySentiment)
+	analytics.Get("/overview", analyticsHandler.GetAnalyticsOverview)
+	analytics.Get("/article-stats", analyticsHandler.GetArticleStats)
+	analytics.Get("/maintenance-schedule", analyticsHandler.GetMaintenanceSchedule)
+	analytics.Get("/database-health", analyticsHandler.GetDatabaseHealth)
+	analytics.Post("/refresh", analyticsHandler.RefreshAnalytics)
 
 	// Public routes (optional auth)
 	if auth != nil {

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jeffrey/intellinieuws/internal/models"
 	"github.com/jeffrey/intellinieuws/internal/repository"
 	"github.com/jeffrey/intellinieuws/internal/scraper/browser"
@@ -102,8 +103,11 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		Status:    models.JobStatusRunning,
 	}
 
-	// Create job record
-	jobID, err := s.jobRepo.CreateJob(ctx, source)
+	// Create job record with UUID and method
+	jobUUID := uuid.New().String()
+	scrapingMethod := models.ScrapingMethodRSS // Default to RSS
+
+	jobID, err := s.jobRepo.CreateJobWithDetails(ctx, source, jobUUID, scrapingMethod)
 	if err != nil {
 		s.logger.WithError(err).Warn("Failed to create job record, continuing anyway")
 		jobID = 0 // Continue without job tracking
@@ -124,9 +128,10 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 			result.Status = models.JobStatusFailed
 			result.EndTime = time.Now()
 
-			// Mark job as failed
+			// Mark job as failed with error code
 			if jobID > 0 {
-				if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+				executionMs := int(time.Since(startTime).Milliseconds())
+				if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, "PANIC_RECOVERED", executionMs); err != nil {
 					s.logger.WithError(err).Warn("Failed to mark job as failed")
 				}
 			}
@@ -139,9 +144,10 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		result.Status = models.JobStatusFailed
 		result.EndTime = time.Now()
 
-		// Mark job as failed
+		// Mark job as failed with error code
 		if jobID > 0 {
-			if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+			executionMs := int(time.Since(startTime).Milliseconds())
+			if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, "CONTEXT_CANCELLED", executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to mark job as failed")
 			}
 		}
@@ -160,9 +166,10 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 			result.EndTime = time.Now()
 			s.logger.Warnf("Robots.txt disallows scraping of %s", source)
 
-			// Mark job as failed
+			// Mark job as failed with error code
 			if jobID > 0 {
-				if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+				executionMs := int(time.Since(startTime).Milliseconds())
+				if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, "ROBOTS_TXT_DISALLOW", executionMs); err != nil {
 					s.logger.WithError(err).Warn("Failed to mark job as failed")
 				}
 			}
@@ -187,9 +194,10 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		result.Status = models.JobStatusFailed
 		result.EndTime = time.Now()
 
-		// Mark job as failed
+		// Mark job as failed with error code
 		if jobID > 0 {
-			if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+			executionMs := int(time.Since(startTime).Milliseconds())
+			if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, "RATE_LIMIT_ERROR", executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to mark job as failed")
 			}
 		}
@@ -211,8 +219,10 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 	})
 
 	if err != nil {
+		errorCode := "SCRAPING_FAILED"
 		if cb.IsOpen() {
 			result.Error = fmt.Sprintf("circuit breaker open (too many failures)")
+			errorCode = "CIRCUIT_BREAKER_OPEN"
 			s.logger.Warnf("Circuit breaker OPEN for %s - blocking requests", source)
 		} else {
 			result.Error = fmt.Sprintf("scraping failed: %v", err)
@@ -220,10 +230,15 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		result.Status = models.JobStatusFailed
 		result.EndTime = time.Now()
 
-		// Mark job as failed
+		// Mark job as failed with error code
 		if jobID > 0 {
-			if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+			executionMs := int(time.Since(startTime).Milliseconds())
+			if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, errorCode, executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to mark job as failed")
+			}
+			// Update source metadata on scraping failure
+			if err := s.jobRepo.UpdateSourceError(ctx, source, result.Error); err != nil {
+				s.logger.WithError(err).Warn("Failed to update source error")
 			}
 		}
 		return result, fmt.Errorf("scraping failed for %s: %w", source, err)
@@ -237,10 +252,15 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		result.EndTime = time.Now()
 		result.Duration = time.Since(startTime)
 
-		// Mark job as completed with 0 articles
+		// Mark job as completed with detailed stats (0 articles found)
 		if jobID > 0 {
-			if err := s.jobRepo.CompleteJob(ctx, jobID, 0); err != nil {
+			executionMs := int(time.Since(startTime).Milliseconds())
+			if err := s.jobRepo.CompleteJobWithDetails(ctx, jobID, 0, 0, 0, 0, executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to complete job record")
+			}
+			// Update source metadata even when no articles found (still a success)
+			if err := s.jobRepo.UpdateSourceMetadata(ctx, source, 0, true); err != nil {
+				s.logger.WithError(err).Warn("Failed to update source metadata")
 			}
 		}
 		return result, nil
@@ -331,15 +351,25 @@ func (s *Service) ScrapeSource(ctx context.Context, source string, feedURL strin
 		result.Status = StatusPartialSuccess
 	}
 
-	// Mark job as completed
+	// Mark job as completed with detailed stats
 	if jobID > 0 {
+		executionMs := int(time.Since(startTime).Milliseconds())
 		if result.Status == models.JobStatusCompleted {
-			if err := s.jobRepo.CompleteJob(ctx, jobID, stored); err != nil {
+			if err := s.jobRepo.CompleteJobWithDetails(ctx, jobID,
+				len(articles), stored, 0, skipped, executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to complete job record")
 			}
+			// Update source metadata on success
+			if err := s.jobRepo.UpdateSourceMetadata(ctx, source, stored, true); err != nil {
+				s.logger.WithError(err).Warn("Failed to update source metadata")
+			}
 		} else {
-			if err := s.jobRepo.FailJob(ctx, jobID, result.Error); err != nil {
+			if err := s.jobRepo.FailJobWithDetails(ctx, jobID, result.Error, "STORAGE_ERROR", executionMs); err != nil {
 				s.logger.WithError(err).Warn("Failed to mark job as failed")
+			}
+			// Update source metadata on failure
+			if err := s.jobRepo.UpdateSourceError(ctx, source, result.Error); err != nil {
+				s.logger.WithError(err).Warn("Failed to update source error")
 			}
 		}
 	}

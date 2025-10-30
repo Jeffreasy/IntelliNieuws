@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,12 @@ func NewArticleRepository(db *pgxpool.Pool) *ArticleRepository {
 func (r *ArticleRepository) Create(ctx context.Context, article *models.ArticleCreate) (*models.Article, error) {
 	// Generate content hash for duplicate detection
 	article.ContentHash = generateContentHash(article.Title, article.URL)
+
+	// Sanitize text fields to prevent UTF-8 encoding errors
+	article.Title = sanitizeUTF8(article.Title)
+	article.Summary = sanitizeUTF8(article.Summary)
+	article.Author = sanitizeUTF8(article.Author)
+	article.Category = sanitizeUTF8(article.Category)
 
 	query := `
 		INSERT INTO articles (title, summary, url, published, source, keywords, image_url, author, category, content_hash)
@@ -867,8 +874,19 @@ func generateContentHash(title, url string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// sanitizeUTF8 removes invalid UTF-8 byte sequences from strings
+// This prevents PostgreSQL "invalid byte sequence for encoding UTF8" errors
+func sanitizeUTF8(s string) string {
+	// strings.ToValidUTF8 replaces invalid UTF-8 sequences with the replacement character
+	// We use empty string as replacement to simply remove invalid bytes
+	return strings.ToValidUTF8(s, "")
+}
+
 // UpdateContent updates the full content of an article after HTML extraction
 func (r *ArticleRepository) UpdateContent(ctx context.Context, id int64, content string) error {
+	// Sanitize content: remove invalid UTF-8 sequences to prevent database errors
+	content = sanitizeUTF8(content)
+
 	query := `
 		UPDATE articles
 		SET content = $2,

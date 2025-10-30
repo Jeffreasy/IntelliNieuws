@@ -3,6 +3,7 @@ package html
 import (
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -276,6 +277,9 @@ func (e *ContentExtractor) extractBodyText(doc *goquery.Document) string {
 
 // cleanText removes extra whitespace and normalizes text
 func (e *ContentExtractor) cleanText(text string) string {
+	// Decode HTML entities first (e.g., &amp;, &quot;, &#8220;, etc.)
+	text = html.UnescapeString(text)
+
 	// Remove multiple spaces
 	text = strings.Join(strings.Fields(text), " ")
 

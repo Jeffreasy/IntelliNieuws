@@ -176,6 +176,11 @@ func (p *Processor) processCycle(ctx context.Context) {
 func (p *Processor) processEmailToArticle(ctx context.Context, email *models.Email) error {
 	p.logger.Infof("Processing email %d into article: %s", email.ID, email.Subject)
 
+	// Mark email as processing
+	if err := p.updateEmailStatus(ctx, email.ID, models.EmailStatusProcessing); err != nil {
+		p.logger.WithError(err).Warn("Failed to mark email as processing")
+	}
+
 	// Extract content (prefer text over HTML for now)
 	content := email.BodyText
 	if content == "" {
@@ -206,6 +211,8 @@ func (p *Processor) processEmailToArticle(ctx context.Context, email *models.Ema
 	// Store article
 	storedArticle, err := p.articleRepo.Create(ctx, article)
 	if err != nil {
+		// Mark as failed with error code
+		p.markEmailFailedWithCode(ctx, email.ID, err.Error(), "ARTICLE_CREATE_FAILED")
 		return fmt.Errorf("failed to create article: %w", err)
 	}
 
@@ -250,9 +257,14 @@ func (p *Processor) retryFailedEmails(ctx context.Context) {
 	p.logger.Infof("Retrying %d failed emails", len(failedEmails))
 
 	for _, email := range failedEmails {
+		// Update last_retry_at before processing
+		if err := p.updateLastRetryAt(ctx, email.ID); err != nil {
+			p.logger.WithError(err).Warn("Failed to update last_retry_at")
+		}
+
 		if err := p.processEmailToArticle(ctx, &email); err != nil {
 			p.logger.WithError(err).Errorf("Retry failed for email %d", email.ID)
-			p.emailRepo.MarkAsFailed(ctx, email.ID, err.Error())
+			p.markEmailFailedWithCode(ctx, email.ID, err.Error(), "RETRY_FAILED")
 		}
 	}
 }
@@ -358,4 +370,21 @@ func (p *Processor) FetchExistingEmails(ctx context.Context) (int, error) {
 
 	p.logger.Infof("Successfully processed %d existing emails into articles", processedCount)
 	return processedCount, nil
+}
+
+// updateEmailStatus updates the status of an email
+func (p *Processor) updateEmailStatus(ctx context.Context, emailID int64, status string) error {
+	return p.emailRepo.UpdateStatus(ctx, emailID, status)
+}
+
+// markEmailFailedWithCode marks an email as failed with error message and code
+func (p *Processor) markEmailFailedWithCode(ctx context.Context, emailID int64, errorMsg, errorCode string) {
+	if err := p.emailRepo.MarkAsFailedWithCode(ctx, emailID, errorMsg, errorCode); err != nil {
+		p.logger.WithError(err).Error("Failed to mark email as failed with code")
+	}
+}
+
+// updateLastRetryAt updates the last_retry_at timestamp
+func (p *Processor) updateLastRetryAt(ctx context.Context, emailID int64) error {
+	return p.emailRepo.UpdateLastRetryAt(ctx, emailID)
 }

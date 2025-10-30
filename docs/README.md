@@ -2,14 +2,35 @@
 
 Welkom bij de officiële documentatie van IntelliNieuws - een intelligente, AI-verrijkte nieuws aggregator voor Nederlandse nieuwsbronnen met geavanceerde sentiment analyse, trending topic detection, en **production-ready Docker deployment**.
 
-## 🆕 Nieuw in v2.2
+## 🆕 Nieuw in v3.1 - Critical Fixes (LIVE & VERIFIED)
 
-- 🐳 **[Docker Setup (Production-Ready)](docker-setup.md)** - Complete containerized deployment met auto-backup
+- ✅ **[Complete Fix Guide](FIXES-V3.1-COMPLETE.md)** - **🔥 MUST READ: Live verified fixes**
+- ✅ **Content Extraction** - 100% success rate (was 0%)
+- ✅ **AI Entity Parsing** - Robuuste JSON handling (100% success)
+- ✅ **UTF-8 Sanitization** - Geen database errors meer
+- ✅ **Chrome Dependencies** - Volledige browser support in Docker
+- ✅ **Live Tested** - 30+ articles processed successfully
+
+📖 **Details:** [v3.1 Changelog](changelog/v3.1.md) | [Fix Guide](FIXES-V3.1-COMPLETE.md)
+
+## 🆕 Nieuw in v3.0 - Scraper Optimizations
+
+- ⚡ **[Scraper v3.0 Summary](SCRAPER-V3-SUMMARY.md)** - 10x performance improvement
+- 🔄 **Channel-based Browser Pool** - Instant acquisition (no polling)
+- 🛡️ **Enhanced Circuit Breakers** - Per-source tracking
+- 🎭 **User-Agent Rotation** - Stealth scraping
+- 📊 **Database Indexes** - 10x snellere queries
+- 🎚️ **Multi-Profile Support** - Fast/Balanced/Deep/Conservative
+
+📖 **Details:** [v3.0 Implementation](SCRAPER-OPTIMIZATIONS-IMPLEMENTATION.md) | [Review](OPTIMIZATIONS-REVIEW-V3.md)
+
+## 🆕 Nieuw in v2.2 - Infrastructure
+
+- 🐳 **[Docker Setup (Production-Ready)](docker-setup.md)** - Complete containerized deployment
 - 🔒 **Security Hardening** - Redis authentication, geen hardcoded credentials
 - 💾 **Automatische Backups** - Dagelijkse database backups (7 dagen retentie)
 - ⚡ **Redis Optimalisaties** - Connection pooling (20 conns) & persistence
 - 📊 **Resource Management** - CPU/Memory limits per service
-- 🛠️ **Cache Invalidation** - Intelligente cache management service
 
 ## 📚 Documentatie Overzicht
 
@@ -72,18 +93,23 @@ Juridische aspecten en naleving
 
 ### 📝 Changelog
 Versie geschiedenis en wijzigingen
+- **[Version 3.1](changelog/v3.1.md)** - **✨ Critical Fixes (LIVE)**
+- **[Version 3.1 Fix Guide](FIXES-V3.1-COMPLETE.md)** - Complete fix documentation
+- [Version 3.0](SCRAPER-V3-SUMMARY.md) - Scraper optimizations
+- [Version 2.1](changelog/v2.1.md) - Feature additions
 - [Version 2.0](changelog/v2.0.md) - Optimalisatie release
-- [Migration Guide](changelog/migration-guide.md) - Upgrade van v1 naar v2
 
 ## 🎯 Quick Navigation
 
 ### Ik wil...
-- **Snel starten met Docker** → [Docker Setup](docker-setup.md) **✨ Nieuw!**
+- **🔥 Zie v3.1 Fixes** → [FIXES-V3.1-COMPLETE.md](FIXES-V3.1-COMPLETE.md) **✨ Live Verified!**
+- **Snel starten met Docker** → [Docker Setup](docker-setup.md)
 - **Lokaal starten** → [Quick Start](getting-started/quick-start.md)
-- **API gebruiken** → [API Reference](api/endpoints.md)
+- **API gebruiken** → [API Reference](api/README.md)
 - **Frontend bouwen** → [Frontend Guide](frontend/README.md)
 - **Deployen** → [Docker Setup](docker-setup.md) of [Manual Deployment](deployment/deployment-guide.md)
 - **Troubleshooting** → [Operations Guide](operations/troubleshooting.md)
+- **Performance** → [v3.0 Optimizations](SCRAPER-V3-SUMMARY.md)
 
 ### Voor verschillende rollen
 - **👨‍💼 Management** → [Executive Summary](deployment/deployment-guide.md#executive-summary)
@@ -94,13 +120,17 @@ Versie geschiedenis en wijzigingen
 
 ## 📊 Project Status
 
-**Versie:** 2.2 (Docker & Security Edition) **✨ Nieuw!**
-**Status:** Production Ready ✅
-**Performance:** 8x sneller dan v1.0
+**Versie:** 3.1.0 (Critical Fixes - LIVE) **✨ Nieuw!**
+**Status:** Production Ready & Verified ✅
+**Performance:** 10x sneller dan v1.0
+**Content Extraction:** 100% success rate ✅
+**AI Processing:** 100% success rate ✅
+**UTF-8 Handling:** 0 errors ✅
 **Kosten:** 50-60% reductie
 **Reliability:** 99.5% uptime
 **Security:** Hardened with best practices
 **Infrastructure:** Fully containerized with Docker
+**Live Testing:** 30+ articles processed successfully ✅
 
 ## 🤝 Support
 

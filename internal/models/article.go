@@ -41,14 +41,27 @@ type ArticleFilter struct {
 
 // ScrapingJob represents a scraping job
 type ScrapingJob struct {
-	ID           int64     `json:"id" db:"id"`
-	Source       string    `json:"source" db:"source"`
-	Status       string    `json:"status" db:"status"` // pending, running, completed, failed
-	StartedAt    time.Time `json:"started_at" db:"started_at"`
-	CompletedAt  time.Time `json:"completed_at" db:"completed_at"`
-	Error        string    `json:"error" db:"error"`
-	ArticleCount int       `json:"article_count" db:"article_count"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	ID              int64      `json:"id" db:"id"`
+	JobUUID         string     `json:"job_uuid,omitempty" db:"job_uuid"`
+	Source          string     `json:"source" db:"source"`
+	ScrapingMethod  string     `json:"scraping_method,omitempty" db:"scraping_method"`
+	Status          string     `json:"status" db:"status"` // pending, running, completed, failed, cancelled
+	StartedAt       *time.Time `json:"started_at,omitempty" db:"started_at"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	ExecutionTimeMs *int       `json:"execution_time_ms,omitempty" db:"execution_time_ms"`
+	ArticlesFound   int        `json:"articles_found" db:"articles_found"`
+	ArticlesNew     int        `json:"articles_new" db:"articles_new"`
+	ArticlesUpdated int        `json:"articles_updated" db:"articles_updated"`
+	ArticlesSkipped int        `json:"articles_skipped" db:"articles_skipped"`
+	Error           string     `json:"error,omitempty" db:"error"`
+	ErrorCode       string     `json:"error_code,omitempty" db:"error_code"`
+	RetryCount      int        `json:"retry_count" db:"retry_count"`
+	MaxRetries      int        `json:"max_retries" db:"max_retries"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	CreatedBy       string     `json:"created_by,omitempty" db:"created_by"`
+
+	// Deprecated: Use ArticlesNew instead
+	ArticleCount int `json:"article_count,omitempty" db:"-"`
 }
 
 // ScrapingJobStatus constants
@@ -57,21 +70,28 @@ const (
 	JobStatusRunning   = "running"
 	JobStatusCompleted = "completed"
 	JobStatusFailed    = "failed"
+	JobStatusCancelled = "cancelled"
 )
 
 // Source represents a news source configuration
 type Source struct {
-	ID            int64     `json:"id" db:"id"`
-	Name          string    `json:"name" db:"name"`
-	Domain        string    `json:"domain" db:"domain"`
-	RSSFeedURL    string    `json:"rss_feed_url" db:"rss_feed_url"`
-	UseRSS        bool      `json:"use_rss" db:"use_rss"`
-	UseDynamic    bool      `json:"use_dynamic" db:"use_dynamic"`
-	IsActive      bool      `json:"is_active" db:"is_active"`
-	RateLimitSec  int       `json:"rate_limit_sec" db:"rate_limit_sec"`
-	LastScrapedAt time.Time `json:"last_scraped_at" db:"last_scraped_at"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID                   int64      `json:"id" db:"id"`
+	Name                 string     `json:"name" db:"name"`
+	Domain               string     `json:"domain" db:"domain"`
+	RSSFeedURL           string     `json:"rss_feed_url" db:"rss_feed_url"`
+	UseRSS               bool       `json:"use_rss" db:"use_rss"`
+	UseDynamic           bool       `json:"use_dynamic" db:"use_dynamic"`
+	IsActive             bool       `json:"is_active" db:"is_active"`
+	RateLimitSeconds     int        `json:"rate_limit_seconds" db:"rate_limit_seconds"`
+	MaxArticlesPerScrape int        `json:"max_articles_per_scrape" db:"max_articles_per_scrape"`
+	LastScrapedAt        *time.Time `json:"last_scraped_at,omitempty" db:"last_scraped_at"`
+	LastSuccessAt        *time.Time `json:"last_success_at,omitempty" db:"last_success_at"`
+	LastError            string     `json:"last_error,omitempty" db:"last_error"`
+	ConsecutiveFailures  int        `json:"consecutive_failures" db:"consecutive_failures"`
+	TotalArticlesScraped int64      `json:"total_articles_scraped" db:"total_articles_scraped"`
+	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
+	CreatedBy            string     `json:"created_by,omitempty" db:"created_by"`
 }
 
 // ArticleCreate represents the data needed to create an article

@@ -1,5 +1,7 @@
 # 📚 Frontend Documentatie - Complete Gids
 
+**🆕 Database Optimized (2025-10-30):** Analytics endpoints zijn 90% sneller dankzij materialized views! Zie [Database Fixes Complete](../DATABASE-FIXES-COMPLETE.md) voor details.
+
 Welkom bij de complete frontend documentatie voor de IntelliNieuws API. Deze gids helpt je om snel een moderne frontend applicatie te bouwen die volledig geïntegreerd is met onze news aggregation API.
 
 ## 🎯 Wat kan de API?
@@ -34,6 +36,13 @@ De IntelliNieuws API is een krachtige backend voor nieuws aggregatie met:
 
 ## 📖 Documentatie Structuur
 
+### 🚨 Troubleshooting
+- 🔧 **[Troubleshooting: No Data](TROUBLESHOOTING-NO-DATA.md)** - Fix "geen data" problemen in Trending & Sentiment
+  - Database health checks
+  - Materialized views verification
+  - Complete diagnostic script
+  - Browser console tests
+
 ### NEW: Stock & Email Features (v2.1) ✨
 
 **Stock Market Integration:**
@@ -49,7 +58,19 @@ De IntelliNieuws API is een krachtige backend voor nieuws aggregatie met:
 
 ### Core Documentation
 
-### 1. **[FRONTEND_API.md](FRONTEND_API.md)** - Core API Reference
+### 1. **[COMPLETE-API-REFERENCE.md](COMPLETE-API-REFERENCE.md)** - Complete API Reference ⭐ NEW
+**🆕 Bijgewerkt met laatste database improvements!**
+
+Complete API documentatie met alle endpoints en TypeScript types:
+- 📊 **Database Performance:** Materialized views info (90% sneller)
+- 🗄️ **Sources Metadata:** Complete source tracking endpoints
+- 📈 **Analytics Endpoints:** Trending, sentiment, entities
+- 🔄 **Auto-Refresh:** Materialized views management
+- 💻 **TypeScript:** Volledige type definities
+- 🎣 **React Hooks:** TanStack Query v5 examples
+- 📝 **Components:** Complete implementatie voorbeelden
+
+### 2. **[FRONTEND_API.md](FRONTEND_API.md)** - Core API Reference (Legacy)
 **Start hier als je nieuw bent!**
 
 Complete API documentatie met alle endpoints, parameters, en response formats:
@@ -69,7 +90,7 @@ Complete API documentatie met alle endpoints, parameters, en response formats:
 - Opzoeken van endpoint details
 - Implementeren van basis functionaliteit
 
-### 2. **[FRONTEND_AI_API.md](FRONTEND_AI_API.md)** - AI Features Guide
+### 3. **[FRONTEND_AI_API.md](FRONTEND_AI_API.md)** - AI Features Guide
 **Voor geavanceerde AI features.**
 
 Complete gids voor het gebruik van AI-verrijkte data:
@@ -94,7 +115,7 @@ Complete gids voor het gebruik van AI-verrijkte data:
 - Entity-based filtering
 - AI-powered article cards
 
-### 3. **[FRONTEND_ADVANCED.md](FRONTEND_ADVANCED.md)** - Advanced Patterns
+### 4. **[FRONTEND_ADVANCED.md](FRONTEND_ADVANCED.md)** - Advanced Patterns
 **Voor production-ready applicaties.**
 
 Geavanceerde patronen en best practices:
@@ -114,7 +135,7 @@ Geavanceerde patronen en best practices:
 - Error handling strategieën
 - Testing & monitoring
 
-### 4. **[FRONTEND_OPTIMIZATIONS.md](FRONTEND_OPTIMIZATIONS.md)** - Optimization Summary
+### 5. **[FRONTEND_OPTIMIZATIONS.md](FRONTEND_OPTIMIZATIONS.md)** - Optimization Summary
 Overzicht van alle optimalisaties die zijn doorgevoerd in de backend voor frontend integratie.
 
 ## 🚀 Quick Start
@@ -504,7 +525,21 @@ api.interceptors.response.use(response => {
 4. **Optimaliseer** met patronen uit [FRONTEND_ADVANCED.md](FRONTEND_ADVANCED.md)
 5. **Deploy** naar productie met de checklist
 
-## 📝 Changelog
+## 🆕 Recent Updates
+
+### v3.1 (2025-10-30) - Database Optimization
+- ✅ **Materialized Views Fixed** - All 3 views operational
+- ✅ **90% Faster Analytics** - Trending queries: 5s → 0.5s
+- ✅ **Sources Metadata** - Automatic tracking implemented
+- ✅ **Triggers Optimized** - Duplicate triggers removed
+- ✅ **Troubleshooting Guide** - Complete diagnostic toolkit
+- ✅ **API Reference Updated** - New Source & Database endpoints
+
+### v2.1 (2025-01-28)
+- ✅ Stock Market Integration (FMP API)
+- ✅ Email Integration (Outlook IMAP)
+- ✅ Complete API documentation
+- ✅ AI features fully documented
 
 ### v1.0.0 (2025-01-28)
 - ✅ Complete API documentatie
