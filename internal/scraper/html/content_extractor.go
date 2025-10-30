@@ -1,6 +1,7 @@
 package html
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
 	"html"
@@ -13,6 +14,7 @@ import (
 	"github.com/jeffrey/intellinieuws/pkg/logger"
 	"github.com/jeffrey/intellinieuws/pkg/utils"
 	"github.com/microcosm-cc/bluemonday"
+	"golang.org/x/net/html/charset"
 )
 
 // BrowserExtractor interface for fallback
@@ -137,7 +139,7 @@ func (e *ContentExtractor) extractHTML(ctx context.Context, url string, source s
 	return content, nil
 }
 
-// fetchHTML downloads HTML from URL with stealth headers
+// fetchHTML downloads HTML from URL with stealth headers and proper encoding handling
 func (e *ContentExtractor) fetchHTML(ctx context.Context, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -169,7 +171,8 @@ func (e *ContentExtractor) fetchHTML(ctx context.Context, url string) (string, e
 	}
 
 	// Additional realistic headers
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	// NOTE: Do NOT set Accept-Encoding manually - Go's http.Client handles gzip automatically
+	// Setting it manually disables automatic decompression!
 	req.Header.Set("DNT", "1")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
@@ -184,12 +187,41 @@ func (e *ContentExtractor) fetchHTML(ctx context.Context, url string) (string, e
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// CRITICAL FIX: Handle gzip/deflate/br compression manually if needed
+	var reader io.Reader = resp.Body
+
+	// Check if response is gzip compressed
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		gzReader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzReader.Close()
+		reader = gzReader
+		e.logger.Debug("Decompressing gzip response")
+	}
+
+	// CRITICAL FIX: Auto-detect character encoding (handles ISO-8859-1, Windows-1252, UTF-8, etc.)
+	// This converts non-UTF-8 content to UTF-8 automatically
+	contentType := resp.Header.Get("Content-Type")
+	utf8Reader, err := charset.NewReader(reader, contentType)
+	if err != nil {
+		// If charset detection fails, use original reader
+		e.logger.WithError(err).Warn("Charset detection failed, using raw content")
+		utf8Reader = reader
+	}
+
+	// Read the properly encoded content
+	body, err := io.ReadAll(utf8Reader)
 	if err != nil {
 		return "", err
 	}
 
-	return string(body), nil
+	// Final safety: ensure valid UTF-8
+	text := string(body)
+	text = strings.ToValidUTF8(text, "")
+
+	return text, nil
 }
 
 // extractBySource uses site-specific selectors

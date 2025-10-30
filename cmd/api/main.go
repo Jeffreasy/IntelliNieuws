@@ -360,6 +360,13 @@ func main() {
 	articleHandler.SetScraperService(scraperService) // Enable content extraction endpoint
 	scraperHandler := handlers.NewScraperHandler(scraperService, articleHandler, log)
 
+	// Initialize configuration handler for runtime settings management
+	configHandler := handlers.NewConfigHandler(cfg, log)
+	if scraperScheduler != nil {
+		configHandler.SetScheduler(scraperScheduler)
+	}
+	log.Info("Configuration handler initialized with 4 profiles (fast, balanced, deep, conservative)")
+
 	// Initialize cache handler
 	var cacheHandler *handlers.CacheHandler
 	if redisClient != nil {
@@ -411,8 +418,8 @@ func main() {
 		},
 	})
 
-	// Setup routes with comprehensive health monitoring (PHASE 4)
-	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, stockHandler, emailHandler, cacheHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
+	// Setup routes with comprehensive health monitoring and configuration API
+	api.SetupRoutes(app, articleHandler, scraperHandler, aiHandler, stockHandler, emailHandler, cacheHandler, configHandler, rateLimiter, auth, log, dbPool, redisClient, cacheService, scraperService, aiProcessor)
 
 	// Start server in goroutine
 	serverErr := make(chan error, 1)

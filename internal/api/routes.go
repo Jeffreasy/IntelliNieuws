@@ -28,6 +28,7 @@ func SetupRoutes(
 	stockHandler *handlers.StockHandler,
 	emailHandler *handlers.EmailHandler,
 	cacheHandler *handlers.CacheHandler,
+	configHandler *handlers.ConfigHandler,
 	rateLimiter *middleware.RateLimiter,
 	auth *middleware.APIKeyAuth,
 	log *logger.Logger,
@@ -205,6 +206,27 @@ func SetupRoutes(
 		cacheRoutes.Get("/memory", cacheHandler.GetMemoryUsage)       // Memory usage
 		cacheRoutes.Post("/invalidate", cacheHandler.InvalidateCache) // Invalidate cache
 		cacheRoutes.Post("/warm", cacheHandler.WarmCache)             // Warm cache
+	}
+
+	// Configuration routes (public - read, protected - write)
+	if configHandler != nil {
+		config := api.Group("/config")
+
+		// Public read endpoints
+		config.Get("/profiles", configHandler.GetProfiles)                // Get all profiles
+		config.Get("/current", configHandler.GetCurrentConfig)            // Get current config
+		config.Get("/scheduler/status", configHandler.GetSchedulerStatus) // Scheduler status
+
+		// Protected write endpoints
+		if auth != nil {
+			config.Post("/profile/:name", auth.Handler(), configHandler.SwitchProfile) // Switch profile
+			config.Patch("/setting", auth.Handler(), configHandler.UpdateSetting)      // Update setting
+			config.Post("/reset", auth.Handler(), configHandler.ResetToDefaults)       // Reset to defaults
+		} else {
+			config.Post("/profile/:name", configHandler.SwitchProfile)
+			config.Patch("/setting", configHandler.UpdateSetting)
+			config.Post("/reset", configHandler.ResetToDefaults)
+		}
 	}
 
 	// 404 handler

@@ -173,8 +173,8 @@ func (h *ArticleHandler) ListArticles(c *fiber.Ctx) error {
 		}
 	}
 
-	// Cache miss - get from database
-	articles, total, err := h.repo.List(c.Context(), filter)
+	// Cache miss - get from database using lightweight method (v3.0 optimization)
+	articles, total, err := h.repo.ListLight(c.Context(), filter)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to list articles")
 		return c.Status(fiber.StatusInternalServerError).JSON(
@@ -270,13 +270,60 @@ func (h *ArticleHandler) SearchArticles(c *fiber.Ctx) error {
 		filter.Limit = 50
 	}
 
-	// Search articles
-	articles, total, err := h.repo.Search(c.Context(), filter)
+	// Generate cache key for search
+	cacheKey := cache.GenerateKey(cache.PrefixArticles, "search",
+		searchQuery,
+		filter.Source,
+		filter.Category,
+		fmt.Sprintf("limit:%d:offset:%d", filter.Limit, filter.Offset),
+	)
+
+	// Try cache first (1 minute TTL for search results)
+	if h.cache != nil {
+		var cachedData struct {
+			Articles []models.Article
+			Total    int
+		}
+		if err := h.cache.Get(c.Context(), cacheKey, &cachedData); err == nil {
+			h.logger.Debug("Cache hit for search results")
+			meta := &models.Meta{
+				Pagination: models.CalculatePaginationMeta(cachedData.Total, filter.Limit, filter.Offset),
+				Sorting: &models.SortingMeta{
+					SortBy:    filter.SortBy,
+					SortOrder: filter.SortOrder,
+				},
+				Filtering: &models.FilteringMeta{
+					Search:   searchQuery,
+					Source:   filter.Source,
+					Category: filter.Category,
+				},
+			}
+			return c.JSON(models.NewSuccessResponseWithMeta(cachedData.Articles, meta, requestID))
+		}
+	}
+
+	// Cache miss - search articles using lightweight method (v3.0 optimization)
+	articles, total, err := h.repo.SearchLight(c.Context(), filter)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to search articles")
 		return c.Status(fiber.StatusInternalServerError).JSON(
 			models.NewErrorResponse("SEARCH_ERROR", "Failed to search articles", err.Error(), requestID),
 		)
+	}
+
+	// Store in cache (1 minute TTL for search)
+	if h.cache != nil {
+		cacheData := struct {
+			Articles []models.Article
+			Total    int
+		}{
+			Articles: articles,
+			Total:    total,
+		}
+		// Use SetWithTTL for shorter cache duration on searches
+		if err := h.cache.SetWithTTL(c.Context(), cacheKey, cacheData, 1*time.Minute); err != nil {
+			h.logger.WithError(err).Warn("Failed to cache search results")
+		}
 	}
 
 	meta := &models.Meta{

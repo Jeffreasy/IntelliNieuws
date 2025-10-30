@@ -47,7 +47,7 @@ func (s *Service) Get(ctx context.Context, key string, dest interface{}) error {
 	return nil
 }
 
-// Set stores a value in cache
+// Set stores a value in cache with default TTL
 func (s *Service) Set(ctx context.Context, key string, value interface{}) error {
 	if s == nil || s.client == nil {
 		return nil // Cache disabled, don't error
@@ -59,6 +59,20 @@ func (s *Service) Set(ctx context.Context, key string, value interface{}) error 
 	}
 
 	return s.client.Set(ctx, key, data, s.ttl).Err()
+}
+
+// SetWithTTL stores a value in cache with custom TTL
+func (s *Service) SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	if s == nil || s.client == nil {
+		return nil // Cache disabled, don't error
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal value: %w", err)
+	}
+
+	return s.client.Set(ctx, key, data, ttl).Err()
 }
 
 // Delete removes a value from cache
