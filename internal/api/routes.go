@@ -102,6 +102,16 @@ func SetupRoutes(
 	analytics.Get("/database-health", analyticsHandler.GetDatabaseHealth)
 	analytics.Post("/refresh", analyticsHandler.RefreshAnalytics)
 
+	// Configuration routes (public read, protected write) - Must be before auth middleware
+	if configHandler != nil {
+		config := api.Group("/config")
+
+		// Public read endpoints
+		config.Get("/profiles", configHandler.GetProfiles)                // Get all profiles
+		config.Get("/current", configHandler.GetCurrentConfig)            // Get current config
+		config.Get("/scheduler/status", configHandler.GetSchedulerStatus) // Scheduler status
+	}
+
 	// Public routes (optional auth)
 	if auth != nil {
 		api.Use(auth.Optional())
@@ -208,25 +218,12 @@ func SetupRoutes(
 		cacheRoutes.Post("/warm", cacheHandler.WarmCache)             // Warm cache
 	}
 
-	// Configuration routes (public - read, protected - write)
+	// Configuration write routes (protected)
 	if configHandler != nil {
-		config := api.Group("/config")
-
-		// Public read endpoints
-		config.Get("/profiles", configHandler.GetProfiles)                // Get all profiles
-		config.Get("/current", configHandler.GetCurrentConfig)            // Get current config
-		config.Get("/scheduler/status", configHandler.GetSchedulerStatus) // Scheduler status
-
-		// Protected write endpoints
-		if auth != nil {
-			config.Post("/profile/:name", auth.Handler(), configHandler.SwitchProfile) // Switch profile
-			config.Patch("/setting", auth.Handler(), configHandler.UpdateSetting)      // Update setting
-			config.Post("/reset", auth.Handler(), configHandler.ResetToDefaults)       // Reset to defaults
-		} else {
-			config.Post("/profile/:name", configHandler.SwitchProfile)
-			config.Patch("/setting", configHandler.UpdateSetting)
-			config.Post("/reset", configHandler.ResetToDefaults)
-		}
+		configProtected := protected.Group("/config")
+		configProtected.Post("/profile/:name", configHandler.SwitchProfile) // Switch profile
+		configProtected.Patch("/setting", configHandler.UpdateSetting)      // Update setting
+		configProtected.Post("/reset", configHandler.ResetToDefaults)       // Reset to defaults
 	}
 
 	// 404 handler
