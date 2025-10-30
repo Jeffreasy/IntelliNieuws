@@ -182,6 +182,20 @@ func main() {
 	// Initialize content processor for hybrid scraping
 	var contentProcessor *scraper.ContentProcessor
 	if cfg.Scraper.EnableFullContentExtraction && cfg.Scraper.ContentExtractionAsync {
+		// CRITICAL FIX: Wait for browser pool to be ready before starting content processor
+		if cfg.Scraper.EnableBrowserScraping && scraperService != nil {
+			log.Info("Waiting for browser pool initialization (Chrome download may take 20-30s)...")
+			time.Sleep(20 * time.Second)
+
+			// Verify browser pool is available
+			browserStats := scraperService.GetHealth(context.Background())
+			if pool, ok := browserStats["browser_pool"].(map[string]interface{}); ok {
+				if enabled, ok := pool["enabled"].(bool); ok && enabled {
+					log.Info("✅ Browser pool ready for content extraction")
+				}
+			}
+		}
+
 		contentProcessor = scraper.NewContentProcessor(
 			scraperService,
 			cfg.Scraper.ContentExtractionInterval,
